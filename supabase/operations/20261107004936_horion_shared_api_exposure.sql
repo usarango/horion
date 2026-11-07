@@ -43,4 +43,3 @@ commit;
 -- To hand control back to Dashboard, first add horion there, then RESET the role
 -- override and reload config/schema after verifying the Dashboard list preserves
 -- every existing exposed schema. Do not reset or overwrite blindly.
-

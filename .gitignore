@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 .supabase/
 supabase/.temp/
+
+dist/

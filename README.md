@@ -92,3 +92,7 @@ A lista efetiva é **`public,graphql_public,horion`**, preservando `public` como
 ## Próxima etapa
 
 Homologar a adesão explícita de usuários existentes, sessões, isolamento entre membros e Storage; então conectar a interface de produto e validar os 15 critérios do MVP. SMTP, políticas legais, processamento de exportação/exclusão, tratamento completo de imagens/documentos e testes ponta a ponta são dependências de lançamento. Publicação em produção, despesas e ativação de pagamentos continuam sujeitos à aprovação solicitada no briefing.
+
+## Publicação de avaliação
+
+O destino Sites usa uma prévia estática do mesmo produto, gerada por `npm run build:preview`, sem conexões com o Supabase. Ela permite avaliar as interações locais e identifica o acesso de conta/documentos reais como indisponível nessa publicação. O build Next.js principal permanece disponível. Escopo, operação e resultado de deploy: [PUBLIC_PREVIEW.md](docs/PUBLIC_PREVIEW.md).

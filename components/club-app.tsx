@@ -66,6 +66,7 @@ type AppProps = {
   sharedPost?: string;
   watchId?: string;
   backendConfigured?: boolean;
+  publicPreview?: boolean;
   authError?: boolean;
 };
 const navItems = [
@@ -139,6 +140,7 @@ function ClubShell({
   sharedPost,
   watchId,
   backendConfigured = false,
+  publicPreview = false,
   authError,
 }: AppProps) {
   const router = useRouter();
@@ -420,6 +422,7 @@ function ClubShell({
           locale={locale}
           onClose={() => setAuth(false)}
           configured={backendConfigured}
+          publicPreview={publicPreview}
         />
       )}
     </div>
@@ -1173,10 +1176,12 @@ function AccountModal({
   locale,
   onClose,
   configured,
+  publicPreview = false,
 }: {
   locale: Locale;
   onClose: () => void;
   configured: boolean;
+  publicPreview?: boolean;
 }) {
   type Member = { id: string; username: string; displayName: string; locale: string };
   type Account = {
@@ -1192,7 +1197,7 @@ function AccountModal({
   const [status, setStatus] = useState('');
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(configured);
+  const [checking, setChecking] = useState(configured && !publicPreview);
   const [account, setAccount] = useState<Account | null>(null);
 
   function validMember(value: unknown): value is Member {
@@ -1224,7 +1229,7 @@ function AccountModal({
   }
 
   useEffect(() => {
-    if (!configured) return;
+    if (!configured || publicPreview) return;
     const controller = new AbortController();
     setChecking(true);
     readAccount(controller.signal)
@@ -1241,7 +1246,7 @@ function AccountModal({
         if (!controller.signal.aborted) setChecking(false);
       });
     return () => controller.abort();
-  }, [configured]);
+  }, [configured, publicPreview]);
 
   async function refreshAccount() {
     setChecking(true);
@@ -1404,6 +1409,21 @@ function AccountModal({
       setBusy(false);
     }
   }
+
+  if (publicPreview)
+    return (
+      <Modal locale={locale} title={t('account.public-preview-title')} onClose={onClose}>
+        <div className="account-intro">
+          <Compass size={30} strokeWidth={1} />
+          <p>{t('account.public-preview-local')}</p>
+          <p className="form-note">{t('account.public-preview-accounts')}</p>
+          <button className="button" onClick={onClose}>
+            {t('continue-exploring')}
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </Modal>
+    );
 
   if (!configured)
     return (

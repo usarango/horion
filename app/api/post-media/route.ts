@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       .single();
     if (!media) return json({ error: 'Media not found.' }, 404);
     const { data, error } = await supabase.storage
-      .from('post-media')
+      .from('horion-post-media')
       .createSignedUrl(media.storage_path, 300);
     return error
       ? json({ error: 'Unable to load this image.' }, 502)
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return json({ error: 'Only JPEG, PNG and WebP images are supported.' }, 400);
     const path = `${user.id}/${post.id}/${crypto.randomUUID()}`;
     const { error: uploadError } = await supabase.storage
-      .from('post-media')
+      .from('horion-post-media')
       .upload(path, bytes, { contentType: mime, upsert: false });
     if (uploadError) return json({ error: 'Image upload failed. Please try again.' }, 502);
     const { data, error } = await supabase
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       .select('id,alt_text,mime_type,size_bytes')
       .single();
     if (error) {
-      await supabase.storage.from('post-media').remove([path]);
+      await supabase.storage.from('horion-post-media').remove([path]);
       return json({ error: 'Unable to attach the image. Please retry.' }, 502);
     }
     return json({ ok: true, data }, 201);

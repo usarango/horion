@@ -21,22 +21,26 @@ const original = {
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,
   key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   app: process.env.NEXT_PUBLIC_APP_URL,
+  signup: process.env.HORION_ALLOW_SHARED_SIGNUP,
 };
 let auth: typeof import('../app/api/auth/route');
 let club: typeof import('../app/api/club/route');
 let callback: typeof import('../app/auth/callback/route');
 let documents: typeof import('../app/api/passport-documents/route');
 let media: typeof import('../app/api/post-media/route');
+let onboarding: typeof import('../app/api/onboarding/route');
 before(async () => {
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;
   delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
-  [auth, club, callback, documents, media] = await Promise.all([
+  delete process.env.HORION_ALLOW_SHARED_SIGNUP;
+  [auth, club, callback, documents, media, onboarding] = await Promise.all([
     import('../app/api/auth/route'),
     import('../app/api/club/route'),
     import('../app/auth/callback/route'),
     import('../app/api/passport-documents/route'),
     import('../app/api/post-media/route'),
+    import('../app/api/onboarding/route'),
   ]);
 });
 after(() => {
@@ -45,6 +49,7 @@ after(() => {
     NEXT_PUBLIC_SUPABASE_URL: original.url,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: original.key,
     NEXT_PUBLIC_APP_URL: original.app,
+    HORION_ALLOW_SHARED_SIGNUP: original.signup,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -60,7 +65,13 @@ const request = (path: string, body: unknown, origin = 'http://localhost:3000') 
 test('unconfigured authentication discloses demo mode without creating an account', async () => {
   const response = await auth.GET();
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { configured: false, user: null });
+  const status = await response.json();
+  assert.equal(status.configured, false);
+  assert.equal(status.user, null);
+  assert.equal(status.member, null);
+  assert.equal(status.signupEnabled, false);
+  assert.equal(status.sharedAuth, true);
+  assert.match(status.notice, /shares.*Rango/i);
   const signup = await auth.POST(
     request('/api/auth', {
       action: 'signup',
@@ -85,8 +96,8 @@ test('unconfigured durable resources and document/media downloads fail explicitl
   }
 });
 
-test('mutating auth and community requests reject cross-origin and absent origins', async () => {
-  for (const handler of [auth.POST, club.POST, documents.POST, media.POST]) {
+test('mutating auth, membership and community requests reject cross-origin and absent origins', async () => {
+  for (const handler of [auth.POST, onboarding.POST, club.POST, documents.POST, media.POST]) {
     const bad = await handler(
       request('/api/auth', { action: 'logout' }, 'https://attacker.example')
     );
@@ -95,6 +106,69 @@ test('mutating auth and community requests reject cross-origin and absent origin
       new NextRequest('http://localhost:3000/api/auth', { method: 'POST', body: '{}' })
     );
     assert.equal(absent.status, 403);
+  }
+});
+
+test('shared-project signup is disabled before invoking any Auth client operation', async () => {
+  const previousFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://bkjjzujujedqbsrppvpt.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_only';
+  process.env.HORION_ALLOW_SHARED_SIGNUP = 'false';
+  globalThis.fetch = async () => {
+    fetchCalls++;
+    throw new Error('Network is forbidden in this test');
+  };
+  try {
+    const response = await auth.POST(
+      request('/api/auth', {
+        action: 'signup',
+        email: 'collector@example.test',
+        password: 'Long-enough-test-password',
+      })
+    );
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).signupEnabled, false);
+    assert.equal(fetchCalls, 0, 'disabled signup must never reach Auth');
+  } finally {
+    globalThis.fetch = previousFetch;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    delete process.env.HORION_ALLOW_SHARED_SIGNUP;
+  }
+});
+
+test('existing short passwords reach login configuration checks while signup remains strict', async () => {
+  const login = await auth.POST(
+    request('/api/auth', { action: 'login', email: 'collector@example.test', password: 'legacy' })
+  );
+  assert.equal(
+    login.status,
+    503,
+    'existing passwords must not be rejected by the signup length rule'
+  );
+  const signup = await auth.POST(
+    request('/api/auth', { action: 'signup', email: 'collector@example.test', password: 'legacy' })
+  );
+  assert.equal(signup.status, 400);
+});
+
+test('explicit membership validates its own fields and never creates an account without configuration', async () => {
+  const valid = await onboarding.POST(
+    request('/api/onboarding', {
+      username: 'collector',
+      displayName: 'A Collector',
+      locale: 'pt-BR',
+    })
+  );
+  assert.equal(valid.status, 503);
+  for (const body of [
+    { username: 'collector', displayName: 'A Collector', locale: 'en', user_id: 'forged' },
+    { username: '../admin', displayName: 'A Collector', locale: 'en' },
+    { username: 'collector', displayName: 'A Collector', locale: 'unsupported' },
+  ]) {
+    const invalid = await onboarding.POST(request('/api/onboarding', body));
+    assert.equal(invalid.status, 400);
   }
 });
 

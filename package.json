@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
+    "test": "node --no-wasm-tier-up --no-wasm-async-compilation --import tsx --test --test-isolation=none tests/*.test.ts",
     "format": "prettier --write app components lib tests docs README.md next.config.ts postcss.config.mjs proxy.ts tsconfig.json package.json"
   },
   "dependencies": {

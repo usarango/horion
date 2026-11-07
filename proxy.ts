@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseConfig } from './lib/supabase/config';
+import {
+  getHorionClientOptions,
+  getSupabaseConfig,
+  isHorionAuthCookie,
+} from './lib/supabase/config';
 
 export async function proxy(request: NextRequest) {
   const forwardedHeaders = new Headers(request.headers);
@@ -23,9 +27,11 @@ export async function proxy(request: NextRequest) {
   if (!config) return next();
   let response = next();
   const supabase = createServerClient(config.url, config.key, {
+    ...getHorionClientOptions(),
     cookies: {
-      getAll: () => request.cookies.getAll(),
+      getAll: () => request.cookies.getAll().filter((cookie) => isHorionAuthCookie(cookie.name)),
       setAll(cookiesToSet, headers) {
+        cookiesToSet = cookiesToSet.filter((cookie) => isHorionAuthCookie(cookie.name));
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         forwardedHeaders.set('cookie', request.headers.get('cookie') || '');
         response = next();

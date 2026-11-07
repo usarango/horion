@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       .single();
     if (error || !doc) return json({ error: 'Document not found.' }, 404);
     const { data, error: signError } = await supabase.storage
-      .from('passport-documents')
+      .from('horion-passport-documents')
       .createSignedUrl(doc.storage_path, 60, { download: doc.file_name });
     return signError
       ? json({ error: 'Unable to authorize the download.' }, 502)
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     if (!mime) return json({ error: 'Only PDF, JPEG, PNG and WebP documents are supported.' }, 400);
     const path = `${user.id}/${passport.id}/${crypto.randomUUID()}`;
     const { error: uploadError } = await supabase.storage
-      .from('passport-documents')
+      .from('horion-passport-documents')
       .upload(path, bytes, { contentType: mime, upsert: false });
     if (uploadError) return json({ error: 'The private upload could not be completed.' }, 502);
     const name = file.name.replace(/[\x00-\x1f\x7f/\\]/g, '_').slice(0, 240) || 'document';
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       .select('id,file_name,mime_type,size_bytes,created_at')
       .single();
     if (error) {
-      await supabase.storage.from('passport-documents').remove([path]);
+      await supabase.storage.from('horion-passport-documents').remove([path]);
       return json({ error: 'Unable to record the document. Please retry.' }, 502);
     }
     return json({ ok: true, data }, 201);

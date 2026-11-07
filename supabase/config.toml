@@ -1,3 +1,8 @@
+# LOCAL DEVELOPMENT ONLY. Never push this whole configuration onto the shared Rango project.
+# Remote Auth/SMTP/providers/redirects and existing API schemas belong to all apps.
+# LOCAL STACK ONLY. Do not push this configuration to the shared Rango project.
+# Hosted Auth/API settings are shared and require an explicitly reviewed change.
+# This file does not authorize `supabase config push` against that project.
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
@@ -10,7 +15,7 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-schemas = ["public", "graphql_public"]
+schemas = ["public", "graphql_public", "horion"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size

@@ -2,14 +2,24 @@
 
 ## Escopo desta base
 
-O Horion começa como um monólito modular: uma aplicação Next.js com React e TypeScript e uma base PostgreSQL gerenciada pelo Supabase. Os módulos compartilham identidade e referências, sem exigir microserviços. O código local não publica um site, não ativa cobrança e não altera automaticamente projetos Supabase existentes.
+O Horion começa como um monólito modular: uma aplicação Next.js com React e TypeScript e uma base PostgreSQL gerenciada pelo Supabase. Os módulos compartilham identidade e referências, sem exigir microserviços. Em 7 de novembro de 2026, a fundação compartilhada foi aplicada ao projeto Rango `bkjjzujujedqbsrppvpt`, com isolamento em `horion` e `horion_private`. Nenhum site ou pagamento foi ativado.
 
 Há duas fronteiras que precisam permanecer explícitas:
 
 - **Demonstração:** dados fictícios e interações persistidas no navegador. Serve para avaliar navegação, linguagem visual e fluxos de produto. Não oferece isolamento entre usuários, comprovação de identidade ou armazenamento seguro de documentos.
-- **Backend Supabase:** migrações, políticas e pontos de integração preparados para um projeto explicitamente escolhido. Sua existência no repositório não significa que o banco remoto foi configurado nem que os fluxos foram validados em produção. Consulte [DATABASE.md](DATABASE.md).
+- **Backend Supabase:** fundação aplicada ao projeto compartilhado: 37 tabelas com RLS, dois buckets próprios e 12 novas policies de Storage. A Data API ainda expõe somente `public,graphql_public`; os endpoints de dados e o onboarding Horion dependem da exposição de `horion`. A aplicação do schema não significa integração concluída da interface ou homologação de fluxos reais. Consulte [DATABASE.md](DATABASE.md).
 
 Não se deve trocar silenciosamente uma falha do backend por uma gravação local: isso daria ao usuário uma confirmação falsa de persistência.
+
+## Fronteira com o Rango
+
+A migration remota `20261107003648_horion_shared_foundation` cria os objetos Horion sem renomear ou substituir tabelas do `public`. O fingerprint dos metadados protegidos existentes foi idêntico antes e depois; o escopo e os limites dessa evidência estão em [VALIDATION.md](VALIDATION.md).
+
+A migration `20261107004514_horion_shared_performance` também foi aplicada. Ela acrescenta cinco índices compostos para FKs e reúne duas policies de UPDATE de posts em uma, mantendo a combinação OR de ambas as condições `USING` e `WITH CHECK`. O ajuste fica restrito ao Horion; a verificação final do fingerprint protegido do Rango permaneceu idêntica. A cadeia completa é exercitada pelos testes locais.
+
+Auth continua global ao projeto. Os cookies `horion-auth` separam a sessão do navegador, mas não criam outro diretório de identidades nem isolam SMTP, cotas ou hooks globais. A criação de identidades é desativada por padrão; um usuário existente só recebe perfil Horion por adesão explícita. Não há trigger Horion de signup que inclua automaticamente todos os usuários do Rango.
+
+As policies adicionais de Storage protegem os buckets Horion mesmo na presença de policies permissivas anteriores, preservando o comportamento dos buckets existentes. A configuração global de API/Auth, o cadastro de novas identidades e a exclusão de uma identidade compartilhada precisam considerar ambas as aplicações.
 
 ## Organização
 
@@ -81,6 +91,8 @@ As fotografias são ilustrações editoriais e não evidência técnica de uma r
 
 ## Dependências externas e implantação
 
-Para acesso multiusuário é necessário escolher um projeto Supabase de desenvolvimento, revisar as migrações, configurar Auth e URLs de retorno, criar buckets e publicar as variáveis de ambiente. E-mail depende do SMTP e das políticas do provedor. O deploy Next.js requer ambiente compatível, HTTPS, segredos por ambiente, política de cache para sessões e observabilidade.
+O projeto foi escolhido e a fundação aplicada, mas falta expor `horion` pela Data API. A revisão automática rejeitou a proposta de `ALTER ROLE authenticator SET pgrst.db_schemas`, que persistiria um override sobre o Dashboard; ela não foi executada. O caminho recomendado é adicionar `horion` nas configurações de schemas expostos, mantendo `public,graphql_public`, após aprovação explícita. A proposta rejeitada foi arquivada fora das migrações para evitar aplicação acidental.
+
+Depois dessa configuração, ainda são necessários testes remotos de adesão, sessão, isolamento e Storage, integração da interface, URLs de retorno e preparação do ambiente de deploy. E-mail depende do SMTP compartilhado e das políticas do provedor. O deploy Next.js requer HTTPS, segredos por ambiente, política de cache para sessões e observabilidade.
 
 GitHub, domínio, serviços pagos, pagamentos e publicação em produção são decisões separadas. Não há autorização implícita para despesas ou alteração de um banco sem vínculo confirmado com este projeto.

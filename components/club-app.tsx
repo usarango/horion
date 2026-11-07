@@ -1178,145 +1178,411 @@ function AccountModal({
   onClose: () => void;
   configured: boolean;
 }) {
+  type Member = { id: string; username: string; displayName: string; locale: string };
+  type Account = {
+    signupEnabled: boolean;
+    sharedAuth?: boolean;
+    onboardingAvailable?: boolean;
+    memberUnavailable?: boolean;
+    user: { id: string; email?: string } | null;
+    member: Member | null;
+  };
   const t = (key: TranslationKey) => translate(locale, key);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [status, setStatus] = useState('');
+  const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [user, setUser] = useState<string | null>(null);
+  const [checking, setChecking] = useState(configured);
+  const [account, setAccount] = useState<Account | null>(null);
+
+  function validMember(value: unknown): value is Member {
+    if (!value || typeof value !== 'object') return false;
+    const member = value as Member;
+    return (
+      typeof member.id === 'string' &&
+      typeof member.username === 'string' &&
+      typeof member.displayName === 'string' &&
+      typeof member.locale === 'string'
+    );
+  }
+
+  async function readAccount(signal?: AbortSignal): Promise<Account> {
+    const response = await fetch('/api/auth', { cache: 'no-store', signal });
+    if (!response.ok) throw new Error('Account unavailable');
+    const data = (await response.json()) as Account;
+    if (
+      !data ||
+      typeof data.signupEnabled !== 'boolean' ||
+      !('user' in data) ||
+      !('member' in data) ||
+      (data.user !== null && typeof data.user?.id !== 'string') ||
+      (data.member !== null && (!validMember(data.member) || data.member.id !== data.user?.id))
+    ) {
+      throw new Error('Account response unavailable');
+    }
+    return data;
+  }
+
   useEffect(() => {
     if (!configured) return;
-    let active = true;
-    fetch('/api/auth')
-      .then((res) => res.json())
+    const controller = new AbortController();
+    setChecking(true);
+    readAccount(controller.signal)
       .then((data) => {
-        if (active) setUser(data.user?.email || null);
+        if (!controller.signal.aborted) setAccount(data);
       })
       .catch(() => {
-        if (active) setStatus(t('could-not-check-the-account-connection'));
+        if (!controller.signal.aborted) {
+          setStatus(t('could-not-check-the-account-connection'));
+          setFailed(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setChecking(false);
       });
-    return () => {
-      active = false;
-    };
+    return () => controller.abort();
   }, [configured]);
-  async function submit(event: FormEvent<HTMLFormElement>) {
+
+  async function refreshAccount() {
+    setChecking(true);
+    setStatus('');
+    setFailed(false);
+    try {
+      setAccount(await readAccount());
+    } catch {
+      setStatus(t('could-not-check-the-account-connection'));
+      setFailed(true);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!account || busy || checking) return;
+    // Capabilities come from the server; a disabled signup never sends a request.
+    if (mode === 'signup' && !account.signupEnabled) {
+      setMode('login');
+      setStatus(t('account.registration-disabled'));
+      setFailed(true);
+      return;
+    }
     setBusy(true);
     setStatus('');
+    setFailed(false);
     const values = new FormData(event.currentTarget);
+    let accepted = false;
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: user ? 'logout' : mode,
-          ...(user
-            ? {}
-            : {
-                email: values.get('email'),
-                password: values.get('password'),
-                ...(mode === 'signup' ? { displayName: values.get('name'), locale } : {}),
-              }),
+          action: mode,
+          email: values.get('email'),
+          password: values.get('password'),
+          ...(mode === 'signup' ? { displayName: values.get('name'), locale } : {}),
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error();
-      if (user) {
-        setUser(null);
-        setStatus(t('signed-out-of-supabase'));
-      } else if (data.emailConfirmationRequired)
-        setStatus(t('check-your-email-to-confirm-your-account-the-local-demo-remains'));
-      else {
-        setUser(String(values.get('email')));
+      if (!response.ok) {
         setStatus(
-          t('authenticated-with-supabase-this-product-preview-continues-to-use-local-demo')
+          t(
+            response.status === 401
+              ? 'account.invalid-credentials'
+              : response.status === 403 && mode === 'signup'
+                ? 'account.registration-disabled'
+                : 'account-request-failed-check-your-details-connection-and-supabase-configuration'
+          )
         );
+        setFailed(true);
+        if (response.status === 403 && mode === 'signup') {
+          setAccount({ ...account, signupEnabled: false });
+          setMode('login');
+        }
+        return;
+      }
+      accepted = true;
+      const next = await readAccount();
+      setAccount(next);
+      if (mode === 'signup' && data.emailConfirmationRequired) {
+        setMode('login');
+        setStatus(t('check-your-email-to-confirm-your-account-the-local-demo-remains'));
+      } else if (next.user) {
+        setStatus(t('account.signed-in'));
+      } else {
+        setStatus(t('account.session-refresh-failed'));
+        setFailed(true);
       }
     } catch {
+      if (accepted) setAccount(null);
       setStatus(
-        t('account-request-failed-check-your-details-connection-and-supabase-configuration')
+        t(
+          accepted
+            ? 'account.session-refresh-failed'
+            : 'account-request-failed-check-your-details-connection-and-supabase-configuration'
+        )
       );
+      setFailed(true);
     } finally {
       setBusy(false);
     }
   }
-  if (configured)
+
+  async function joinHorion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (
+      !account?.user ||
+      account.member ||
+      account.memberUnavailable ||
+      account.onboardingAvailable !== true ||
+      busy
+    )
+      return;
+    const values = new FormData(event.currentTarget);
+    setBusy(true);
+    setStatus('');
+    setFailed(false);
+    try {
+      const response = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: values.get('username'),
+          displayName: values.get('name'),
+          locale,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setStatus(
+          t(
+            response.status === 409
+              ? 'account.username-unavailable'
+              : response.status === 401
+                ? 'account.sign-in-again'
+                : response.status === 503
+                  ? 'account.membership-unavailable'
+                  : 'account.membership-failed'
+          )
+        );
+        setFailed(true);
+        if (response.status === 401) setAccount({ ...account, user: null, member: null });
+        return;
+      }
+      if (!validMember(data.member) || data.member.id !== account.user.id) {
+        throw new Error('Membership response unavailable');
+      }
+      setAccount({ ...account, member: data.member });
+      setStatus(t('account.membership-created'));
+    } catch {
+      setStatus(t('account.membership-failed'));
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signOut() {
+    if (busy) return;
+    setBusy(true);
+    setStatus('');
+    setFailed(false);
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
+      if (!response.ok) throw new Error('Sign out failed');
+      setAccount((previous) => (previous ? { ...previous, user: null, member: null } : null));
+      setMode('login');
+      setStatus(t('account.signed-out-locally'));
+    } catch {
+      setStatus(t('account.sign-out-failed'));
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!configured)
     return (
       <Modal locale={locale} title={t('your-place-in-the-club')} onClose={onClose}>
-        <p className="form-intro">
-          {t('supabase-account-access-product-interactions-in-this-preview-still-use-separate')}
-        </p>
-        <form onSubmit={submit} className="compose-form">
-          {user ? (
-            <p>
-              {t('signed-in-as')} {user}
+        <div className="account-intro">
+          <LogIn size={30} strokeWidth={1} />
+          <p>{t('account.unconfigured')}</p>
+          <p className="form-note">{t('the-demo-profile-is-not-a-real-account-posts-votes-and')}</p>
+          <button className="button" onClick={onClose}>
+            {t('continue-exploring')}
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </Modal>
+    );
+
+  const member = account?.member;
+  const signupMode = mode === 'signup' && account?.signupEnabled === true;
+  return (
+    <Modal locale={locale} title={t('your-place-in-the-club')} onClose={onClose}>
+      <div aria-busy={busy || checking}>
+        {checking ? (
+          <p className="form-intro" role="status">
+            {t('account.checking-access')}
+          </p>
+        ) : !account ? (
+          <div className="account-intro">
+            <button className="button button-outline" onClick={refreshAccount}>
+              {t('account.retry-connection')}
+            </button>
+          </div>
+        ) : account.user ? (
+          <div className="compose-form">
+            <p className="form-intro">
+              {t('signed-in-as')} {account.user.email || t('account.connected-account')}
             </p>
-          ) : (
-            <>
-              {mode === 'signup' && (
+            {member ? (
+              <div className="account-intro">
+                <Check size={26} aria-hidden="true" />
+                <p>
+                  <strong>{member.displayName}</strong> · @{member.username}
+                </p>
+                <p>{t('account.membership-active')}</p>
+              </div>
+            ) : account.memberUnavailable || account.onboardingAvailable !== true ? (
+              <>
+                <p className="form-note">{t('account.membership-unavailable')}</p>
+                <button className="text-link" disabled={busy} onClick={refreshAccount}>
+                  {t('account.retry-connection')}
+                </button>
+              </>
+            ) : (
+              <form className="compose-form" onSubmit={joinHorion}>
+                <p className="form-intro">{t('account.join-intro')}</p>
                 <label>
                   {t('display-name')}
-                  <input name="name" autoComplete="name" minLength={2} maxLength={60} required />
+                  <input
+                    name="name"
+                    autoComplete="name"
+                    minLength={1}
+                    maxLength={80}
+                    required
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  {t('username')}
+                  <input
+                    name="username"
+                    autoComplete="username"
+                    minLength={3}
+                    maxLength={32}
+                    pattern="[a-z0-9_]+"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    required
+                    disabled={busy}
+                    aria-describedby="horion-username-help"
+                  />
+                  <small id="horion-username-help" className="form-note">
+                    {t('account.username-help')}
+                  </small>
+                </label>
+                <p className="form-note">{t('account.join-consent')}</p>
+                <button className="button" type="submit" disabled={busy}>
+                  {busy ? t('please-wait') : t('account.join-horion')}
+                </button>
+              </form>
+            )}
+            <button className="text-link" type="button" disabled={busy} onClick={signOut}>
+              {busy ? t('please-wait') : t('sign-out')}
+            </button>
+          </div>
+        ) : (
+          <>
+            {!account.signupEnabled && (
+              <p className="form-intro">
+                {t(
+                  account.sharedAuth
+                    ? 'account.shared-registration-disabled'
+                    : 'account.registration-disabled'
+                )}
+              </p>
+            )}
+            <form onSubmit={submitAuth} className="compose-form">
+              {signupMode && (
+                <label>
+                  {t('display-name')}
+                  <input
+                    name="name"
+                    autoComplete="name"
+                    minLength={1}
+                    maxLength={80}
+                    required
+                    disabled={busy}
+                  />
                 </label>
               )}
               <label>
                 {t('email')}
-                <input name="email" type="email" autoComplete="email" required maxLength={254} />
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  disabled={busy}
+                />
               </label>
               <label>
                 {t('password')}
                 <input
                   name="password"
                   type="password"
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  minLength={12}
+                  autoComplete={signupMode ? 'new-password' : 'current-password'}
+                  minLength={signupMode ? 12 : 1}
                   maxLength={128}
                   required
+                  disabled={busy}
                 />
               </label>
-              <p className="form-note">
-                {t('at-least-12-characters-never-reuse-an-important-password')}
-              </p>
-            </>
-          )}
-          {status && (
-            <p role="status" className="inline-feedback">
-              {status}
-            </p>
-          )}
-          <button className="button" type="submit" disabled={busy}>
-            {busy
-              ? t('please-wait')
-              : user
-                ? t('sign-out')
-                : mode === 'login'
-                  ? t('sign-in')
-                  : t('create-account')}
-          </button>
-          {!user && (
-            <button
-              className="text-link"
-              type="button"
-              onClick={() => {
-                setMode(mode === 'login' ? 'signup' : 'login');
-                setStatus('');
-              }}
-            >
-              {mode === 'login' ? t('new-here-create-an-account') : t('already-a-member-sign-in')}
-            </button>
-          )}
-        </form>
-      </Modal>
-    );
-  return (
-    <Modal locale={locale} title={t('your-place-in-the-club')} onClose={onClose}>
-      <div className="account-intro">
-        <LogIn size={30} strokeWidth={1} />
-        <p>{t('youre-exploring-the-local-demonstration-creating-a-real-member-account-will')}</p>
-        <p className="form-note">{t('the-demo-profile-is-not-a-real-account-posts-votes-and')}</p>
-        <button className="button" onClick={onClose}>
-          {t('continue-exploring')}
-          <ArrowRight size={16} />
-        </button>
+              {signupMode && (
+                <p className="form-note">
+                  {t('at-least-12-characters-never-reuse-an-important-password')}
+                </p>
+              )}
+              <button className="button" type="submit" disabled={busy}>
+                {busy ? t('please-wait') : signupMode ? t('create-account') : t('sign-in')}
+              </button>
+              {account.signupEnabled && (
+                <button
+                  className="text-link"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setMode(mode === 'login' ? 'signup' : 'login');
+                    setStatus('');
+                    setFailed(false);
+                  }}
+                >
+                  {mode === 'login'
+                    ? t('new-here-create-an-account')
+                    : t('already-a-member-sign-in')}
+                </button>
+              )}
+            </form>
+          </>
+        )}
+        {status && (
+          <p
+            role={failed ? 'alert' : 'status'}
+            className={failed ? 'form-error' : 'inline-feedback'}
+          >
+            {status}
+          </p>
+        )}
+        <p className="form-note" style={{ marginTop: 18 }}>
+          {t('account.local-preview')}
+        </p>
       </div>
     </Modal>
   );

@@ -9,8 +9,13 @@ export function json(body: unknown, status = 200) {
 export function assertSameOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
   const expected = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
-  if (!origin || new URL(expected).origin !== origin)
-    throw json({ error: 'Invalid request origin.' }, 403);
+  let valid = false;
+  try {
+    valid = !!origin && new URL(expected).origin === origin;
+  } catch {
+    /* Invalid configuration fails closed. */
+  }
+  if (!valid) throw json({ error: 'Invalid request origin.' }, 403);
 }
 export async function parseBody<T>(request: NextRequest, schema: z.ZodType<T>) {
   const text = await request.text();

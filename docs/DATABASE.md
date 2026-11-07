@@ -1,10 +1,18 @@
 # Horion — banco, segurança e integração
 
-Para a decisão sobre reutilizar a conta ou o banco do Rango e o preço oficial, consulte [INFRASTRUCTURE.md](INFRASTRUCTURE.md). A baseline recusa bancos com tabelas de aplicação existentes.
+O destino aprovado é o projeto Supabase já usado pelo Rango (`bkjjzujujedqbsrppvpt`), com isolamento aditivo. Identidades Auth, capacidade e administração do projeto são compartilhadas; tabelas, permissões da aplicação, cookies e buckets Horion têm namespaces próprios. Consulte também [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
 
 ## Estado entregue
 
-A migration `supabase/migrations/20261106233423_horion_foundation.sql` foi criada pelo comando `supabase migration new horion_foundation` da CLI **2.83.0**. Foi executada em PostgreSQL embarcado via PGlite com schemas mínimos de Auth/Storage para testes de RLS e constraints. **Não foi aplicada a nenhum projeto remoto**. Os projetos existentes na conta não foram assumidos como pertencentes ao Horion.
+A baseline compartilhada foi **aplicada com sucesso em 7 de novembro de 2026** ao projeto `bkjjzujujedqbsrppvpt`. A história remota registra a versão **20261107003648**, nome **horion_shared_foundation**; a migration local é reconciliada com essa versão atribuída pelo servidor. A migration adicional `20261107004514_horion_shared_performance` também foi aplicada: cinco índices compostos e uma policy de UPDATE com as mesmas permissões de autor/moderador. A proposta original para banco dedicado, em `docs/archive/20261106233423_horion_foundation.sql.txt`, nunca foi aplicada e não deve ser executada.
+
+O preflight somente leitura foi executado antes e depois. O fingerprint protegido foi idêntico nos dois resultados: **`4577a6a52b5e12c77a187d75b01282b0`**. A comparação cobriu DDL público, hooks de `auth.users`, privilégios e policies antigos de Storage, buckets existentes e privilégios padrão. Os novos objetos ficaram nos namespaces Horion; nenhuma configuração de Auth foi modificada, nenhuma identidade foi criada e signup continua desativado por padrão, com adesão explícita.
+
+A URL e a chave **publishable** estão configuradas no `.env.local` ignorado pelo Git. Contudo, **o schema `horion` ainda não está exposto na Data API**: a lista vigente continua `public, graphql_public`. Assim, o banco está instalado, mas os endpoints de dados/onboarding que usam `horion` ainda dependem dessa configuração. Não há fallback para tabelas `public` do Rango.
+
+A revisão automática de aprovação rejeitou a alternativa de exposição por override SQL persistente do papel da API, porque essa alteração de configuração do projeto não tinha aprovação explícita. A instrução rejeitada **não foi executada**. O próximo passo proposto é acrescentar `horion` pelo Dashboard, mantendo `public` e `graphql_public`; essa mudança aguarda autorização específica. Não aplicar automaticamente a proposta SQL rejeitada.
+
+Os advisors de segurança não apontaram WARN/ERROR atribuídos ao Horion. Os quatro INFO de tabelas com RLS sem policies correspondem às negações intencionais em `billing_events`, `horion_private.user_roles`, `horion_private.community_moderators` e `horion_private.audit_log`. Isso não representa validação dos fluxos HTTP reais ou aprovação para lançamento.
 
 A interface atual usa um repositório de demonstração no navegador. O login real, quando configurado, cria uma sessão Supabase independente. Configurar credenciais **não muda automaticamente o feed ou a coleção demonstrativos para dados remotos**. Os endpoints abaixo são a fundação de persistência real; a troca do adaptador da interface e os testes integrados de múltiplas sessões são a próxima etapa.
 
@@ -20,32 +28,34 @@ A interface atual usa um repositório de demonstração no navegador. O login re
 | Reputação             | `reputation_rules`, `reputation_events`, `reputation_levels`, `badges`, `user_badges`; nenhuma concessão por pagamentos ou número bruto de posts |
 | Society               | `subscription_plans`, `entitlement_definitions`, `plan_entitlements`, `subscriptions`, `billing_events`; sem provedor ou cobrança ativa          |
 | Conteúdo e operação   | `editorial_content`, `notifications`, `reports`, `moderation_actions`                                                                            |
-| Autorizações internas | `app_private.user_roles`, `app_private.community_moderators`, `app_private.audit_log`                                                            |
+| Autorizações internas | `horion_private.user_roles`, `horion_private.community_moderators`, `horion_private.audit_log`                                                   |
 
 Os campos técnicos desconhecidos são `NULL`, nunca estimativas apresentadas como especificações. Referências pendentes não são públicas. Fontes e sugestões de revisão têm persistência própria. A revisão editorial do catálogo ainda precisa de um fluxo administrativo completo.
 
 ## Fronteiras de segurança
 
-- Todas as tabelas Horion em `public` têm RLS habilitado, com permissões explícitas. Módulos futuros sem políticas de escrita permanecem inacessíveis para gravação por visitantes/membros.
+- Todas as tabelas Horion em `horion` têm RLS habilitado, com permissões explícitas. Módulos futuros sem políticas de escrita permanecem inacessíveis para gravação por visitantes/membros.
 - O servidor usa a chave **publishable** e o JWT do próprio usuário; nenhuma chave `service_role` é necessária na aplicação web.
 - `getClaims()` verifica a sessão no Proxy. Cada operação privada verifica novamente `getUser()` no servidor; as políticas do banco continuam sendo a autorização final.
 - Papéis administrativos vêm de tabelas internas; `user_metadata`, nome de perfil, assinatura e reputação não concedem privilégios.
-- Os helpers `SECURITY DEFINER` ficam no schema não exposto `app_private`, têm `search_path` vazio e EXECUTE explicitamente limitado. O trigger de bootstrap de perfil só é invocável pelo fluxo de inserção de `auth.users`; metadados fornecem apenas o nome, nunca permissões.
+- Os helpers `SECURITY DEFINER` ficam no schema não exposto `horion_private`, têm `search_path` vazio e EXECUTE explicitamente limitado. **Nenhum trigger Horion é instalado em `auth.users`**. A adesão acontece por chamada explícita ao RPC `horion.onboard_member(p_username,p_display_name,p_locale)`, `SECURITY INVOKER`, somente para `auth.uid()`. Usuário Auth do Rango não recebe perfil Horion automaticamente. A chamada é idempotente, valida os campos antes de inserir e não sobrescreve perfil existente.
 - `cast_vote` é uma função **SECURITY INVOKER**: aplica RLS e altera somente o valor do voto, sem permitir mudar usuário ou publicação.
 - Documentos, números de série, preços e passaportes são exclusivamente do proprietário. Um administrador comunitário também não pode consultá-los. A publicação de um relógio depende da opção do item **e** da opção do perfil.
 - Passaportes não têm UPDATE de proprietário nem endpoint de transferência. Eventos criados pelo usuário só aceitam `owner-declared`; anexar um documento não autentica o documento ou o relógio.
 - Um bloqueio é consultado nos dois sentidos por um helper privado para impedir novos comentários, votos e relações de seguir. A lista privada de bloqueios não é revelada.
 - Publicação exige participação na comunidade. O trigger serializa publicações por usuário e limita a cinco por minuto, usando a hora do banco, mesmo se o cliente tentar fornecer outra data. Isso é uma proteção inicial; comentários e outros fluxos ainda precisam de limites de abuso adicionais antes de abrir cadastro público.
 - Mudanças em posts registram ator/identificador/operação; mudanças de estado/fixação também produzem um registro de moderação. Os logs não copiam documentos ou números de série.
-- Foreign keys compostas garantem que respostas pertençam ao mesmo post do comentário pai e que passaporte/documento pertençam ao proprietário do relógio.
+- Foreign keys compostas garantem que respostas pertençam ao mesmo post do comentário pai e que passaporte/documento pertençam ao proprietário do relógio. Reversões de reputação só podem apontar para evento do mesmo membro. A remoção de um comentário promove suas respostas a comentários raiz, e a remoção de evento anula o ponteiro de reversão: essas referências não bloqueiam a exclusão coordenada de uma identidade Auth compartilhada.
 
 ## Storage
 
-Os buckets **passport-documents** (10 MB) e **post-media** (8 MB) são privados. Ambos rejeitam tipos fora das listas configuradas. O servidor também verifica assinatura binária, não somente extensão ou MIME informado pelo navegador. SVG e HTML não são aceitos.
+Os buckets **horion-passport-documents** (10 MB) e **horion-post-media** (8 MB) são privados. Ambos rejeitam tipos fora das listas configuradas. O servidor também verifica assinatura binária, não somente extensão ou MIME informado pelo navegador. SVG e HTML não são aceitos.
+
+As policies existentes do Rango permanecem com as mesmas definições. Como policies permissivas se combinam por **OR**, o Horion também instala guards **RESTRICTIVE** de SELECT/INSERT/UPDATE/DELETE para `anon` e `authenticated`: eles exigem a autorização Horion para os dois buckets novos e retornam verdadeiro para qualquer outro bucket. Assim, uma policy legada ampla não abre os documentos Horion e o acesso dos outros buckets não é alterado. UPDATE/upsert e mudança de bucket de objetos Horion são negados.
 
 Documentos seguem `userId/passportId/uuid`; somente o proprietário do passaporte pode inserir/ler o objeto e seus metadados. O download exige sessão no servidor e retorna URL assinada de **60 segundos**, com disposição de download. Mídias sociais têm URLs assinadas de **300 segundos** e só podem ser lidas quando os metadados estão associados a uma publicação pública acessível e publicada. Após moderação, novas assinaturas são negadas; uma URL já emitida pode funcionar até expirar.
 
-Uploads são append-only: sem sobrescrita/upsert. Se a gravação dos metadados falhar, o handler tenta remover o objeto recém-enviado. Há limite de tamanho antes e após leitura. O proxy de produção também deve impor o limite a corpos em streaming. Verificação de assinatura não substitui análise antimalware, decodificação completa da imagem ou remoção de EXIF: esses tratamentos e a limpeza programada de órfãos continuam pendentes.
+Imagens de post seguem `userId/postId/uuid` e exigem post publicado do próprio autor. Uploads são append-only: sem sobrescrita/upsert. Se a gravação dos metadados falhar, o handler tenta remover o objeto recém-enviado. Há limite de tamanho antes e após leitura. O proxy de produção também deve impor o limite a corpos em streaming. Verificação de assinatura não substitui análise antimalware, decodificação completa da imagem ou remoção de EXIF: esses tratamentos e a limpeza programada de órfãos continuam pendentes.
 
 ## Endpoints preparados
 
@@ -55,6 +65,7 @@ Todas as respostas privadas usam `Cache-Control: private, no-store`. Escritas ve
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `GET /api/auth`                    | Configuração e usuário autenticado atual, ou `{configured:false,user:null}`                                                                            |
 | `POST /api/auth`                   | `{action:'login'\|'signup'\|'logout',email?,password?,displayName?,locale?}`; senha de cadastro com mínimo de 12 caracteres                            |
+| `POST /api/onboarding`             | Adesão explícita do usuário autenticado ao Horion; não cria identidade Auth nem altera perfil Rango                                                    |
 | `GET /auth/callback`               | Troca de código PKCE por sessão; destino restrito a `/en` ou `/pt-BR`                                                                                  |
 | `GET /api/club?resource=…&page=0`  | `posts`, `communities`, `references` públicos; `watches`, `passports`, `profile`, `notifications`, `reports` com sessão e RLS; páginas de 24 registros |
 | `POST /api/club`                   | Ações `profile`, `membership`, `post`, `comment`, `vote`, `save`, `watch`, `passport`, `event`, `report`, `moderate`, `notifications-read`             |
@@ -65,20 +76,21 @@ Todas as respostas privadas usam `Cache-Control: private, no-store`. Escritas ve
 
 Os textos de usuário são dados, sem interpretação de HTML. A UI React usa escaping padrão. Conteúdo de terceiros não é automaticamente traduzido. A busca inicial usa título e paginação; há índice de busca textual disponível, mas busca global unificada/facetas ainda precisam de implementação.
 
-## Configuração e ativação posterior
+## Projeto compartilhado: configuração e ativação
 
-1. Selecionar explicitamente um projeto de desenvolvimento do Horion, preferencialmente vazio, e revisar a migration antes da aplicação. Não aplicar sobre esquemas desconhecidos.
-2. Instalar uma CLI compatível e consultar `supabase --help`, `supabase migration --help` e a ajuda do subcomando que será utilizado. A CLI 3 mudou o destino padrão; esta entrega foi gerada com 2.83.0. A v3 tentou gravar em `/home/agent/.supabase`, que é somente leitura neste executor. A v2 foi obtida da distribuição oficial GitHub após falha do instalador npm.
-3. Executar em uma stack Supabase de desenvolvimento, conferir o resultado real com os advisors de segurança/desempenho e gerar tipos TypeScript do projeto. Esses serviços e advisors não foram substituídos pelos mocks PGlite.
-4. Copiar `.env.example` para `.env.local` e preencher `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `NEXT_PUBLIC_APP_URL`. Reiniciar/recompilar Next.js depois de mudar variáveis públicas.
-5. Configurar URL do site, callbacks permitidos, confirmação de e-mail, SMTP e limites de Auth no projeto escolhido. Os padrões locais incluem confirmação de e-mail e senha mínima de 12 caracteres. Não habilitar login anônimo.
-6. Manter apenas `public` nos schemas expostos à Data API; nunca expor `app_private`. Conceder papéis operacionais somente por administração confiável no banco. Não há administrador padrão.
-7. Conectar o adaptador da UI aos endpoints e executar testes reais com visitante, proprietário A, usuário B e moderador, incluindo upload e URL expirada. Validar acessibilidade e fluxos de recuperação de senha/e-mail.
-8. Só depois avaliar ambiente de homologação e publicação com aprovação do usuário. Não há cobrança, transação, KYC, transferência de passaporte ou Exchange ativo.
+1. **Concluído — destino e preflight:** projeto `bkjjzujujedqbsrppvpt`, com resultados de [preflight_shared.sql](../supabase/preflight_shared.sql) comparados antes/depois e fingerprint protegido idêntico. A baseline recusa colisões nos nomes Horion e stacks onde `storage.objects` não existe ou está sem RLS; não altera o RLS existente para tentar corrigir esse ambiente.
+2. **Concluído — baseline:** migration remota `20261107003648_horion_shared_foundation`. Ela criou tabelas/functions/grants/policies nos schemas Horion, dois buckets privados e guards Storage de escopo restrito. A preservação do DDL público, hooks de Auth e objetos antigos de Storage foi verificada pelo preflight. Não reaplicar a baseline, executar `db reset`, push de configuração ou reconciliar automaticamente migrations de outros aplicativos.
+3. **Pendente de autorização — Data API:** acrescentar `horion` pelo Dashboard à lista existente **`public, graphql_public`**, preservando ambos os schemas. **Nunca expor `horion_private`**. A alternativa de override SQL persistente foi rejeitada pela revisão automática e não foi executada. O arquivo `supabase/config.toml` serve somente ao desenvolvimento local e não deve substituir a configuração remota do Rango.
+4. **Concluído parcialmente — credenciais e clientes:** `.env.local` ignorado contém URL e chave publishable do projeto. Os clientes usam `db.schema='horion'`, cookie exclusivo Horion e nenhum fallback para `public`. Confirmar `NEXT_PUBLIC_APP_URL` para cada ambiente antes de testar autenticação real. A configuração de credenciais não muda os dados demonstrativos da interface para dados remotos.
+5. **Mantido — identidades compartilhadas:** criação de novas identidades desativada por padrão. O hook Rango `public.handle_new_user` é global e também seria chamado por signup Horion; é necessário avaliar seus efeitos antes de habilitá-lo. Login de conta existente e adesão explícita ao Horion são fluxos distintos. Nenhuma senha, política de confirmação, configuração SMTP, template ou provedor global foi alterado nesta aplicação.
+6. **Preparado — sessão e exclusão:** logout usa `scope:'local'`, evitando revogar outras sessões do usuário. Recuperação/exclusão da identidade Auth compartilhada exige coordenação entre produtos; Horion não usa Auth Admin para apagar contas globais.
+7. **Pendente — validação integrada:** após liberar a Data API, testar visitante, conta Auth sem adesão, membros A/B e moderador, incluindo URL expirada e uploads, sem presumir que os mocks substituem esses serviços. Conectar o adaptador da interface aos endpoints. As avaliações de desempenho e os testes de serviço real devem ser registrados quando executados. Publicação do site continua dependente da aprovação separada do usuário.
+
+A CLI 3 mudou o destino padrão e tentou gravar em um diretório somente leitura neste executor; a baseline foi gerada com a distribuição oficial **2.83.0**. Consultar `--help` antes de operar a CLI. Não há cobrança, transação, KYC, transferência de passaporte ou Exchange ativo.
 
 ## LGPD/GDPR e limites da entrega
 
-Pedidos de exportação/exclusão têm campos reservados, porém a entrega não oferece ainda o processamento completo desses pedidos. A exportação atual da UI é apenas dos dados locais demonstrativos. Exclusão real exigirá revogar sessões, apagar objetos Storage e coordenar retenção/anônimização de auditoria e contribuições editoriais. Deletar apenas `auth.users` não elimina objetos Storage nem invalida JWTs já emitidos.
+Pedidos de exportação/exclusão têm campos reservados, porém a entrega não oferece ainda o processamento completo desses pedidos. A exportação atual da UI é apenas dos dados locais demonstrativos. Exclusão Horion exigirá apagar somente dados e objetos Horion e coordenar retenção/anônimização de auditoria e contribuições editoriais. **Não apagar `auth.users` nem revogar globalmente sessões** por pedido restrito ao Horion: a identidade também pertence ao Rango. Exclusão global só pode ocorrer em fluxo coordenado entre produtos. Deletar apenas `auth.users` não elimina objetos Storage nem invalida JWTs já emitidos.
 
 Atribuições editoriais e contribuições de catálogo podem ser anonimizadas por `ON DELETE SET NULL`; dados pessoais de coleção são eliminados por cascata. Uma política legal de retenção, consentimento, termos e rotina de exclusão de objetos deve ser definida antes do uso público.
 
@@ -86,8 +98,22 @@ O ledger de reputação nega gravação a membros. Concessões, reversões, vali
 
 ## Verificação executada
 
+- Aplicação remota da baseline confirmada na história `20261107003648 / horion_shared_foundation`.
+- Preflight remoto antes/depois: fingerprint protegido idêntico `4577a6a52b5e12c77a187d75b01282b0`.
+- Advisors de segurança: sem WARN/ERROR do Horion; quatro INFO de ausência intencional de policies nas tabelas internas/futuras citadas acima. A exposição do schema na Data API ainda não foi autorizada/executada.
 - `tests/database.test.ts`: executa a migration inteira no PostgreSQL PGlite, troca papéis e identidade entre visitante/A/B/admin e verifica permissões, constraints, documentos, bloqueios, votos, associação de comentários, visibilidade e auditoria de moderação. Também testa o RPC de votos e o limite de publicação com tentativa de falsear a data.
+- `tests/migration-safety.test.ts`: simula objetos públicos, hook Auth, buckets e policies permissivas do Rango; verifica fingerprints preservados, ausência de adesão automática, onboarding explícito e guards RESTRICTIVE contra vazamento por OR, além de colisões/rollback.
 - `tests/api.test.ts`: invoca handlers reais com `NextRequest`, sem servidor de preview e sem serviço externo. Verifica ausência de configuração, Origin, JSON inválido/excessivo, injeção de papel/estado de verificação, callback e assinaturas de arquivo. O marcador `server-only` recebe um shim restrito aos testes porque Next.js normalmente o resolve na compilação.
 - TypeScript verificado sem erros na implementação dos handlers.
 
-**Não verificado:** serviço real Supabase Auth/Storage/PostgREST, SMTP, renovação de sessão com cookies no navegador, advisor remoto, malware/EXIF, exclusão/exportação pessoal completa, implantação ou fluxos com múltiplas contas reais. A migration e os handlers devem passar por esses testes em homologação antes do lançamento.
+**Limites:** os testes PGlite não substituem serviços reais Supabase Auth/Storage/PostgREST, SMTP, renovação de cookies no navegador ou advisors. Malware/EXIF, exclusão/exportação pessoal completa e fluxos de múltiplas contas reais continuam pendentes até verificação própria. A aplicação remota, o fingerprint e os advisors registrados acima são verificações distintas dos testes locais; não demonstram funcionamento dos endpoints enquanto `horion` não estiver exposto na Data API.
+
+## Fechamento desta configuração
+
+A rodada final passou em 65 testes, sem falhas ou testes ignorados, com toda a cadeia de migrations ativa em PGlite. TypeScript e build com `.env.local` passaram. A execução dos testes usa `--no-wasm-tier-up --no-wasm-async-compilation` para estabilizar o teardown de múltiplas instâncias PGlite no Node 24 após um crash nativo do compilador WASM; nenhuma validação SQL foi removida.
+
+Após o follow-up, os advisors de performance do Horion reportaram apenas 51 INFO de [índices ainda sem uso](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index), compatíveis com as tabelas recém-criadas e sem membros. Não restam as cinco FKs sem índice nem o WARN de múltiplas policies de UPDATE do Horion. Os quatro INFO de segurança por [RLS sem policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) são negações intencionais de acesso direto.
+
+O fingerprint protegido continuou idêntico após as duas migrations. Um teste SQL remoto com papel anônimo confirmou acesso ao conteúdo público vazio e ausência de permissão de SELECT em documentos e papéis internos ou EXECUTE no onboarding. Uma prova HTTP sem ler linhas de clientes confirmou o endpoint padrão `public` respondendo 200 e os schemas `horion`/`horion_private` ainda recusados com PGRST106. O bloqueio de exposição da API segue pendente; não equivale a um teste concluído de sessão ou de upload privado no Storage real. Evidências sem credenciais estão em [SHARED_DATABASE_VERIFICATION.json](SHARED_DATABASE_VERIFICATION.json).
+
+`supabase/config.toml` é somente para a stack local. Não executar `supabase config push` no projeto compartilhado: isso poderia alterar configurações globais de Auth/API do Rango e não foi autorizado. A exposição proposta permanece arquivada fora das migrations executáveis.

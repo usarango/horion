@@ -40,7 +40,7 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import { ClubProvider, useClub } from '@/lib/store';
-import { communities } from '@/lib/demo-data';
+import { liveT } from '@/lib/live-i18n';
 import {
   rankPosts,
   type Comment,
@@ -58,6 +58,7 @@ import {
 } from '@/lib/i18n';
 import { ClubPage } from './club-pages';
 import './pages.css';
+import './live.css';
 
 type AppProps = {
   locale: Locale;
@@ -68,6 +69,7 @@ type AppProps = {
   backendConfigured?: boolean;
   publicPreview?: boolean;
   authError?: boolean;
+  signupEnabled?: boolean;
 };
 const navItems = [
   { id: 'home', icon: Home },
@@ -81,7 +83,7 @@ const navItems = [
 ];
 export function ClubApp(props: AppProps) {
   return (
-    <ClubProvider>
+    <ClubProvider signupEnabled={props.signupEnabled}>
       <ClubShell {...props} />
     </ClubProvider>
   );
@@ -144,12 +146,15 @@ function ClubShell({
   authError,
 }: AppProps) {
   const router = useRouter();
-  const { state, ready, storageError } = useClub();
+  const { state, auth: account, ready, error: loadError, refresh } = useClub();
+  const communities = state.communities;
   const [compose, setCompose] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const navigationRef = useRef<HTMLElement>(null);
   const [auth, setAuth] = useState(false);
+  const requireMember = (action: () => void) =>
+    account.status === 'member' ? action() : setAuth(true);
   const [search, setSearch] = useState(query);
   const t = (key: TranslationKey) => translate(locale, key);
   const labels = navigation[locale];
@@ -217,7 +222,7 @@ function ClubShell({
   }, [isMobile, mobileNav]);
   const unread = state.notifications.filter((n) => !n.read).length;
   return (
-    <div className="club-shell" inert={!ready} aria-busy={!ready}>
+    <div className="club-shell" aria-busy={!ready}>
       <a className="skip-link" href="#main-content">
         {t('skip-to-content')}
       </a>
@@ -286,11 +291,22 @@ function ClubShell({
           </Link>
         </div>
         <div className="sidebar-bottom">
+          {(account.role === 'admin' ||
+            account.role === 'moderator' ||
+            account.moderatedCommunityIds.length > 0) && (
+            <Link className="nav-item" href={`/${locale}/admin`}>
+              <ShieldCheck size={18} />
+              <span>{liveT(locale, 'nav.moderation')}</span>
+            </Link>
+          )}
           <Link className="nav-item" href={`/${locale}/settings`}>
             <Settings size={18} strokeWidth={1.5} />
             <span>{labels.settings}</span>
           </Link>
-          <button className="profile-switch" onClick={() => navigate('profile')}>
+          <button
+            className="profile-switch"
+            onClick={() => (account.status === 'member' ? navigate('profile') : setAuth(true))}
+          >
             <span className="avatar avatar-you">
               {state.profile.name
                 .split(' ')
@@ -299,8 +315,12 @@ function ClubShell({
                 .slice(0, 2)}
             </span>
             <span>
-              <strong>{state.profile.name}</strong>
-              <small>{t('demo-member')}</small>
+              <strong>{state.profile.name || liveT(locale, 'nav.signIn')}</strong>
+              <small>
+                {state.profile.accountType === 'store'
+                  ? liveT(locale, 'common.store')
+                  : liveT(locale, 'common.member')}
+              </small>
             </span>
             <ChevronDown size={15} />
           </button>
@@ -356,30 +376,20 @@ function ClubShell({
             </Link>
             <button
               className="topbar-avatar avatar avatar-you"
-              onClick={() => navigate('profile')}
+              onClick={() => (account.status === 'member' ? navigate('profile') : setAuth(true))}
               aria-label={labels.profile}
             >
-              {state.profile.name.charAt(0)}
+              {state.profile.name.charAt(0) || <LogIn size={17} />}
             </button>
           </div>
         </header>
-        <div className="demo-strip">
-          <span>
-            <span className="live-dot" />
-            {t('preview-edition')}
-            <span className="demo-explainer">
-              {t('fictitious-community-changes-saved-in-this-browser')}
-            </span>
-          </span>
-          <button onClick={() => setAuth(true)}>
-            {t('account-access')}
-            <ArrowUpRight size={13} />
-          </button>
-        </div>
-        {storageError && (
-          <p role="alert" className="storage-error">
-            {t('your-browser-could-not-save-changes-export-your-data-in-settings')}
-          </p>
+        {loadError && (
+          <div role="alert" className="storage-error">
+            {liveT(locale, 'common.connectionError')}{' '}
+            <button className="text-link" onClick={() => void refresh().catch(() => {})}>
+              {liveT(locale, 'common.retry')}
+            </button>
+          </div>
         )}
         {authError && (
           <p role="alert" className="storage-error">
@@ -391,17 +401,19 @@ function ClubShell({
             <HomeFeed
               locale={locale}
               onNavigate={navigate}
-              onCompose={() => setCompose(true)}
+              onCompose={() => requireMember(() => setCompose(true))}
               sharedPost={sharedPost}
+              onAccount={() => setAuth(true)}
             />
           ) : (
             <ClubPage
               page={page}
               locale={locale}
               onNavigate={navigate}
-              onCompose={() => setCompose(true)}
+              onCompose={() => requireMember(() => setCompose(true))}
               query={query}
               watchId={watchId}
+              onAccount={() => setAuth(true)}
             />
           )}
           <footer className="main-footer">
@@ -417,14 +429,7 @@ function ClubShell({
         )}
       </div>
       {compose && <ComposeModal locale={locale} onClose={() => setCompose(false)} />}
-      {auth && (
-        <AccountModal
-          locale={locale}
-          onClose={() => setAuth(false)}
-          configured={backendConfigured}
-          publicPreview={publicPreview}
-        />
-      )}
+      {auth && <AccountModal locale={locale} onClose={() => setAuth(false)} />}
     </div>
   );
 }
@@ -434,13 +439,29 @@ function HomeFeed({
   onNavigate,
   onCompose,
   sharedPost,
+  onAccount,
 }: {
   locale: Locale;
   onNavigate: (page: string) => void;
   onCompose: () => void;
   sharedPost?: string;
+  onAccount: () => void;
 }) {
-  const { state, toggleCommunity, ready } = useClub();
+  const { state, auth, toggleCommunity, ready } = useClub();
+  const communities = state.communities;
+  const [joinError, setJoinError] = useState('');
+  const join = async (slug: string) => {
+    if (auth.status !== 'member') {
+      onAccount();
+      return;
+    }
+    try {
+      await toggleCommunity(slug);
+      setJoinError('');
+    } catch {
+      setJoinError(liveT(locale, 'common.requestFailed'));
+    }
+  };
   const t = (key: TranslationKey) => translate(locale, key);
   const [sort, setSort] = useState('Trending');
   const [type, setType] = useState('All');
@@ -482,72 +503,23 @@ function HomeFeed({
           {t('create-a-post')}
         </button>
       </div>
-      <section className="editorial-grid" aria-label={t('featured-at-horion')}>
-        <button className="hero-story" onClick={() => onNavigate('journal')}>
-          <img
-            src="/images/hero-watch.jpg"
-            alt={t('editorial-close-up-of-a-steel-wristwatch-resting-on-an-archival')}
-            fetchPriority="high"
-            width={1800}
-            height={1200}
-          />
-          <div className="hero-shade" />
-          <div className="hero-content">
-            <span className="hero-category">
-              <span />
-              {t('the-collectors-perspective')}
-            </span>
-            <h2>
-              {t('some-keep-time')}
-              <br />
-              <em>{t('others-tell-stories')}</em>
-            </h2>
-            <p>{t('the-watches-we-wear-the-lives-we-live')}</p>
-            <span className="hero-link">
-              {t('explore-the-journal')}
-              <ArrowUpRight size={18} />
-            </span>
-          </div>
-          <span className="hero-index">JOURNAL / VOL. 01</span>
-        </button>
-        <div className="feature-stack">
-          <button className="passport-feature" onClick={() => onNavigate('passport')}>
-            <div className="feature-top">
-              <span className="eyebrow">HORION PASSPORT</span>
-              <ArrowUpRight size={20} strokeWidth={1.4} />
-            </div>
-            <div className="passport-art" aria-hidden="true">
-              <span className="passport-book">
-                <Watch size={24} strokeWidth={1} />
-                <span>HORION</span>
-                <small>WATCH PASSPORT</small>
-                <i>H</i>
-              </span>
-              <span className="archive-stamp">
-                PRESERVE
-                <br />
-                THE STORY
-                <br />
-                <span>✳</span>
-              </span>
-            </div>
-            <h3>{t('a-story-worth-keeping')}</h3>
-            <p>{t('your-watch-its-history-one-timeless-record')}</p>
-          </button>
-          <button className="society-feature" onClick={() => onNavigate('society')}>
-            <span className="society-emblem">
-              <Crown size={24} strokeWidth={1} />
-            </span>
-            <div>
-              <span className="eyebrow">HORION SOCIETY</span>
-              <h3>{t('take-your-passion-further')}</h3>
-              <span className="society-link">
-                {t('discover-the-club')}
-                <ArrowRight size={14} />
-              </span>
-            </div>
+      <section className="live-welcome" aria-label="Horion Watch Club">
+        <div>
+          <span className="eyebrow">HORION WATCH CLUB</span>
+          <h2>{liveT(locale, 'brand.welcome')}</h2>
+          <p>{liveT(locale, 'brand.intro')}</p>
+          <button className="button" onClick={auth.status === 'member' ? onCompose : onAccount}>
+            {liveT(locale, auth.status === 'member' ? 'feed.create' : 'nav.signUp')}
+            <ArrowUpRight size={17} />
           </button>
         </div>
+        <button className="live-passport-intro" onClick={() => onNavigate('passport')}>
+          <FileCheck2 size={32} strokeWidth={1} />
+          <span className="eyebrow">HORION PASSPORT</span>
+          <h3>{liveT(locale, 'passport.title')}</h3>
+          <p>{liveT(locale, 'passport.subtitle')}</p>
+          <ArrowRight size={20} />
+        </button>
       </section>
       <div className="community-manifesto">
         <span className="manifesto-mark">H.</span>
@@ -615,8 +587,8 @@ function HomeFeed({
           {posts.length === 0 && (
             <div className="feed-empty">
               <Compass size={32} strokeWidth={1} />
-              <h3>{t('a-little-quiet-here')}</h3>
-              <p>{t('try-another-filter-or-start-a-conversation-of-your-own')}</p>
+              <h3>{liveT(locale, 'feed.emptyTitle')}</h3>
+              <p>{liveT(locale, 'feed.emptyBody')}</p>
               <button className="button" onClick={onCompose}>
                 {t('start-a-conversation')}
               </button>
@@ -634,6 +606,7 @@ function HomeFeed({
               locale={locale}
               initiallyOpen={post.id === sharedPost}
               onNavigate={onNavigate}
+              onAccount={onAccount}
             />
           ))}
           {posts.length > pageSize && (
@@ -653,6 +626,10 @@ function HomeFeed({
               <Users size={18} strokeWidth={1.3} />
             </div>
             <p className="aside-subtitle">{t('different-watches-a-shared-obsession')}</p>
+            {communities.length === 0 && (
+              <p className="quiet-text">{liveT(locale, 'community.emptyBody')}</p>
+            )}
+            {joinError && <p role="alert">{joinError}</p>}
             {communities.slice(0, 4).map((community, index) => (
               <div className="community-row" key={community.id}>
                 <button
@@ -663,17 +640,19 @@ function HomeFeed({
                 </button>
                 <button className="community-info" onClick={() => onNavigate('communities')}>
                   <strong>{community.name}</strong>
-                  <small>
-                    {new Intl.NumberFormat(locale, { notation: 'compact' }).format(
-                      community.members
-                    )}{' '}
-                    {t('demo-members')}
-                  </small>
+                  {community.members !== undefined && (
+                    <small>
+                      {new Intl.NumberFormat(locale, { notation: 'compact' }).format(
+                        community.members || 0
+                      )}{' '}
+                      {liveT(locale, 'community.members')}
+                    </small>
+                  )}
                 </button>
                 <button
                   className={`join-button ${state.joined.includes(community.slug) ? 'joined' : ''}`}
                   aria-label={`${state.joined.includes(community.slug) ? t('leave') : t('join')} ${community.name}`}
-                  onClick={() => toggleCommunity(community.slug)}
+                  onClick={() => void join(community.slug)}
                 >
                   {state.joined.includes(community.slug) ? <Check size={14} /> : <Plus size={14} />}
                 </button>
@@ -682,22 +661,6 @@ function HomeFeed({
             <button className="aside-link" onClick={() => onNavigate('communities')}>
               {t('explore-all-communities')}
               <ArrowRight size={15} />
-            </button>
-          </div>
-          <div className="journal-aside">
-            <div className="section-heading">
-              <span className="eyebrow">THE HORION JOURNAL</span>
-              <ArrowUpRight size={17} />
-            </div>
-            <button onClick={() => onNavigate('journal')} className="journal-story">
-              <img
-                src="/images/watch-vintage.jpg"
-                alt={t('illustrative-watch-photography')}
-                loading="lazy"
-              />
-              <span className="eyebrow">{t('the-essentials')}</span>
-              <h3>{t('your-first-mechanical-watch-where-to-begin')}</h3>
-              <span className="read-time">{t('a-beginners-guide-original-demo-article')}</span>
             </button>
           </div>
           <div className="community-promise">
@@ -720,13 +683,15 @@ function PostCard({
   locale,
   initiallyOpen,
   onNavigate,
+  onAccount,
 }: {
   post: Post;
   locale: Locale;
   initiallyOpen?: boolean;
   onNavigate: (page: string) => void;
+  onAccount: () => void;
 }) {
-  const { state, votePost, savePost, commentPost, reportPost, deletePost } = useClub();
+  const { state, auth, votePost, savePost, commentPost, reportPost, deletePost } = useClub();
   const t = (key: TranslationKey) => translate(locale, key);
   const [open, setOpen] = useState(!!initiallyOpen);
   const [menu, setMenu] = useState(false);
@@ -740,24 +705,47 @@ function PostCard({
       document.getElementById(`post-${post.id}`)?.scrollIntoView({ block: 'start' });
     }
   }, [initiallyOpen, post.id]);
-  const community = communities.find((c) => c.slug === post.community);
-  const own = post.username === state.profile.username;
-  const submitComment = (e: FormEvent) => {
-    e.preventDefault();
+  const community = state.communities.find((c) => c.slug === post.community);
+  const [busy, setBusy] = useState(false);
+  const run = async (action: () => Promise<void>) => {
+    if (auth.status !== 'member') {
+      onAccount();
+      return;
+    }
+    setBusy(true);
+    setFeedback('');
     try {
-      commentPost(post.id, comment, reply);
+      await action();
+    } catch {
+      setFeedback(liveT(locale, 'common.requestFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const own = !!auth.user && post.authorId === auth.user.id;
+  const submitComment = async (e: FormEvent) => {
+    e.preventDefault();
+    if (auth.status !== 'member') {
+      onAccount();
+      return;
+    }
+    setBusy(true);
+    try {
+      await commentPost(post.id, comment, reply);
       setComment('');
       setReply(undefined);
       setFeedback(t('your-comment-was-added'));
     } catch {
-      setFeedback(t('write-a-comment-between-1-and-3-000-characters'));
+      setFeedback(liveT(locale, 'common.requestFailed'));
+    } finally {
+      setBusy(false);
     }
   };
   const share = async () => {
     try {
       const url = `${location.origin}/${locale}?post=${encodeURIComponent(post.id)}#post-${post.id}`;
       await navigator.clipboard.writeText(url);
-      setFeedback(t('link-copied-demo-content-exists-only-in-this-browser'));
+      setFeedback(liveT(locale, 'common.copied'));
     } catch {
       setFeedback(t('your-browser-could-not-copy-the-link'));
     }
@@ -790,8 +778,6 @@ function PostCard({
                 {t('edited')}
               </>
             )}
-            <span>·</span>
-            {t('demo')}
           </small>
         </div>
         <div className="post-menu-wrap">
@@ -818,7 +804,8 @@ function PostCard({
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm(t('delete-this-demo-post'))) deletePost(post.id);
+                      if (confirm(liveT(locale, 'feed.confirmDelete')))
+                        void run(() => deletePost(post.id));
                       setMenu(false);
                     }}
                   >
@@ -829,17 +816,12 @@ function PostCard({
               )}
               <button
                 onClick={() => {
-                  const reason = prompt(
-                    t('tell-us-why-you-are-reporting-this-post-demo-moderation')
-                  );
-                  if (reason) {
-                    try {
-                      reportPost(post.id, reason);
-                      setFeedback(t('report-recorded-in-the-local-moderation-sandbox'));
-                    } catch {
-                      setFeedback(t('please-give-a-reason-with-at-least-3-characters'));
-                    }
-                  }
+                  const reason = prompt(liveT(locale, 'feed.reportReason'));
+                  if (reason)
+                    void run(async () => {
+                      await reportPost(post.id, reason);
+                      setFeedback(liveT(locale, 'feed.reportSent'));
+                    });
                   setMenu(false);
                 }}
               >
@@ -861,7 +843,7 @@ function PostCard({
           aria-label={t('open-photo-and-discussion')}
         >
           <img src={post.image} alt={post.title} loading="lazy" />
-          <span>{t('community-photography-demo')}</span>
+          <span>{liveT(locale, 'feed.photography')}</span>
         </button>
       )}
       <div className="post-actions">
@@ -870,7 +852,8 @@ function PostCard({
             className={post.vote === 1 ? 'voted' : ''}
             aria-label={t('upvote')}
             aria-pressed={post.vote === 1}
-            onClick={() => votePost(post.id, 1)}
+            disabled={busy}
+            onClick={() => void run(() => votePost(post.id, 1))}
           >
             <ArrowUp size={16} />
           </button>
@@ -879,7 +862,8 @@ function PostCard({
             className={post.vote === -1 ? 'voted' : ''}
             aria-label={t('downvote')}
             aria-pressed={post.vote === -1}
-            onClick={() => votePost(post.id, -1)}
+            disabled={busy}
+            onClick={() => void run(() => votePost(post.id, -1))}
           >
             <ArrowDown size={16} />
           </button>
@@ -898,7 +882,8 @@ function PostCard({
           className={`save-button ${post.saved ? 'saved' : ''}`}
           aria-label={post.saved ? t('unsave-post') : t('save-post')}
           aria-pressed={!!post.saved}
-          onClick={() => savePost(post.id)}
+          disabled={busy}
+          onClick={() => void run(() => savePost(post.id))}
         >
           <Bookmark size={17} fill={post.saved ? 'currentColor' : 'none'} />
         </button>
@@ -946,7 +931,7 @@ function PostCard({
               required
               rows={3}
             />
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={busy}>
               <Send size={14} />
               {t('post-comment')}
             </button>
@@ -1015,18 +1000,25 @@ function ComposeModal({
   const [body, setBody] = useState(post?.body || '');
   const [community, setCommunity] = useState(post?.community || state.joined[0] || '');
   const [type, setType] = useState<PostType>(post?.type || 'Discussion');
-  const [language, setLanguage] = useState<Locale>(post?.language || locale);
+  const [language, setLanguage] = useState<Locale>(
+    post?.language === 'pt-BR' ? 'pt-BR' : post?.language === 'en' ? 'en' : locale
+  );
   const [image, setImage] = useState<string | undefined>(post?.image);
   const [error, setError] = useState('');
   const [reading, setReading] = useState(false);
-  const submit = (e: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    setBusy(true);
+    setError('');
     try {
-      if (post) editPost(post.id, { title, body });
-      else publishPost({ title, body, community, type, language, image } as PostInput);
+      if (post) await editPost(post.id, { title, body });
+      else await publishPost({ title, body, community, type, language, image } as PostInput);
       onClose();
     } catch {
-      setError(t('check-the-title-content-and-community-join-a-community-before-publishing'));
+      setError(liveT(locale, 'common.requestFailed'));
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -1035,10 +1027,13 @@ function ComposeModal({
       title={post ? t('refine-your-story') : t('every-story-starts-somewhere')}
       onClose={onClose}
     >
-      <p className="form-intro">
-        {t('share-a-discovery-ask-a-question-or-show-us-whats-on')}
-        <span>{t('demo-post-visible-in-this-browser-only')}</span>
-      </p>
+      <p className="form-intro">{t('share-a-discovery-ask-a-question-or-show-us-whats-on')}</p>
+      {state.joined.length === 0 && !post && (
+        <p className="form-note">
+          {liveT(locale, 'feed.joinBeforePost')}{' '}
+          <Link href={`/${locale}/communities`}>{liveT(locale, 'nav.communities')}</Link>
+        </p>
+      )}
       <form onSubmit={submit} className="compose-form">
         {!post && (
           <div className="form-row">
@@ -1048,7 +1043,7 @@ function ComposeModal({
                 <option value="" disabled>
                   {t('choose-a-community')}
                 </option>
-                {communities
+                {state.communities
                   .filter((c) => state.joined.includes(c.slug))
                   .map((c) => (
                     <option value={c.slug} key={c.slug}>
@@ -1162,8 +1157,12 @@ function ComposeModal({
           <button type="button" className="button button-outline" onClick={onClose}>
             {t('cancel')}
           </button>
-          <button type="submit" className="button" disabled={reading || (!post && !community)}>
-            {post ? t('save-changes') : t('publish-story')}
+          <button
+            type="submit"
+            className="button"
+            disabled={reading || busy || (!post && !community)}
+          >
+            {busy ? liveT(locale, 'common.saving') : post ? t('save-changes') : t('publish-story')}
             <ArrowUpRight size={16} />
           </button>
         </div>
@@ -1172,438 +1171,306 @@ function ComposeModal({
   );
 }
 
-function AccountModal({
-  locale,
-  onClose,
-  configured,
-  publicPreview = false,
-}: {
-  locale: Locale;
-  onClose: () => void;
-  configured: boolean;
-  publicPreview?: boolean;
-}) {
-  type Member = { id: string; username: string; displayName: string; locale: string };
-  type Account = {
-    signupEnabled: boolean;
-    sharedAuth?: boolean;
-    onboardingAvailable?: boolean;
-    memberUnavailable?: boolean;
-    user: { id: string; email?: string } | null;
-    member: Member | null;
-  };
-  const t = (key: TranslationKey) => translate(locale, key);
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [status, setStatus] = useState('');
-  const [failed, setFailed] = useState(false);
+function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void }) {
+  const club = useClub();
+  const { auth } = club;
+  const t = (key: Parameters<typeof liveT>[1]) => liveT(locale, key);
+  const [mode, setMode] = useState<'login' | 'signup' | 'confirm'>('login');
   const [busy, setBusy] = useState(false);
-  const [checking, setChecking] = useState(configured && !publicPreview);
-  const [account, setAccount] = useState<Account | null>(null);
-
-  function validMember(value: unknown): value is Member {
-    if (!value || typeof value !== 'object') return false;
-    const member = value as Member;
-    return (
-      typeof member.id === 'string' &&
-      typeof member.username === 'string' &&
-      typeof member.displayName === 'string' &&
-      typeof member.locale === 'string'
-    );
-  }
-
-  async function readAccount(signal?: AbortSignal): Promise<Account> {
-    const response = await fetch('/api/auth', { cache: 'no-store', signal });
-    if (!response.ok) throw new Error('Account unavailable');
-    const data = (await response.json()) as Account;
-    if (
-      !data ||
-      typeof data.signupEnabled !== 'boolean' ||
-      !('user' in data) ||
-      !('member' in data) ||
-      (data.user !== null && typeof data.user?.id !== 'string') ||
-      (data.member !== null && (!validMember(data.member) || data.member.id !== data.user?.id))
-    ) {
-      throw new Error('Account response unavailable');
-    }
-    return data;
-  }
-
-  useEffect(() => {
-    if (!configured || publicPreview) return;
-    const controller = new AbortController();
-    setChecking(true);
-    readAccount(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setAccount(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setStatus(t('could-not-check-the-account-connection'));
-          setFailed(true);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setChecking(false);
-      });
-    return () => controller.abort();
-  }, [configured, publicPreview]);
-
-  async function refreshAccount() {
-    setChecking(true);
-    setStatus('');
-    setFailed(false);
-    try {
-      setAccount(await readAccount());
-    } catch {
-      setStatus(t('could-not-check-the-account-connection'));
-      setFailed(true);
-    } finally {
-      setChecking(false);
-    }
-  }
-
-  async function submitAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!account || busy || checking) return;
-    // Capabilities come from the server; a disabled signup never sends a request.
-    if (mode === 'signup' && !account.signupEnabled) {
-      setMode('login');
-      setStatus(t('account.registration-disabled'));
-      setFailed(true);
-      return;
-    }
-    setBusy(true);
-    setStatus('');
-    setFailed(false);
-    const values = new FormData(event.currentTarget);
-    let accepted = false;
-    try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: mode,
-          email: values.get('email'),
-          password: values.get('password'),
-          ...(mode === 'signup' ? { displayName: values.get('name'), locale } : {}),
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setStatus(
-          t(
-            response.status === 401
-              ? 'account.invalid-credentials'
-              : response.status === 403 && mode === 'signup'
-                ? 'account.registration-disabled'
-                : 'account-request-failed-check-your-details-connection-and-supabase-configuration'
-          )
-        );
-        setFailed(true);
-        if (response.status === 403 && mode === 'signup') {
-          setAccount({ ...account, signupEnabled: false });
-          setMode('login');
-        }
-        return;
-      }
-      accepted = true;
-      const next = await readAccount();
-      setAccount(next);
-      if (mode === 'signup' && data.emailConfirmationRequired) {
-        setMode('login');
-        setStatus(t('check-your-email-to-confirm-your-account-the-local-demo-remains'));
-      } else if (next.user) {
-        setStatus(t('account.signed-in'));
-      } else {
-        setStatus(t('account.session-refresh-failed'));
-        setFailed(true);
-      }
-    } catch {
-      if (accepted) setAccount(null);
-      setStatus(
-        t(
-          accepted
-            ? 'account.session-refresh-failed'
-            : 'account-request-failed-check-your-details-connection-and-supabase-configuration'
-        )
-      );
-      setFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function joinHorion(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (
-      !account?.user ||
-      account.member ||
-      account.memberUnavailable ||
-      account.onboardingAvailable !== true ||
-      busy
-    )
-      return;
-    const values = new FormData(event.currentTarget);
-    setBusy(true);
-    setStatus('');
-    setFailed(false);
-    try {
-      const response = await fetch('/api/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: values.get('username'),
-          displayName: values.get('name'),
-          locale,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setStatus(
-          t(
-            response.status === 409
-              ? 'account.username-unavailable'
-              : response.status === 401
-                ? 'account.sign-in-again'
-                : response.status === 503
-                  ? 'account.membership-unavailable'
-                  : 'account.membership-failed'
-          )
-        );
-        setFailed(true);
-        if (response.status === 401) setAccount({ ...account, user: null, member: null });
-        return;
-      }
-      if (!validMember(data.member) || data.member.id !== account.user.id) {
-        throw new Error('Membership response unavailable');
-      }
-      setAccount({ ...account, member: data.member });
-      setStatus(t('account.membership-created'));
-    } catch {
-      setStatus(t('account.membership-failed'));
-      setFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function signOut() {
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [accountType, setAccountType] = useState<'member' | 'store'>('member');
+  const [confirmationLink, setConfirmationLink] = useState('');
+  const text = (en: string, pt: string) => (locale === 'pt-BR' ? pt : en);
+  const perform = async (action: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);
-    setStatus('');
-    setFailed(false);
+    setError('');
+    setMessage('');
     try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'logout' }),
-      });
-      if (!response.ok) throw new Error('Sign out failed');
-      setAccount((previous) => (previous ? { ...previous, user: null, member: null } : null));
-      setMode('login');
-      setStatus(t('account.signed-out-locally'));
+      await action();
     } catch {
-      setStatus(t('account.sign-out-failed'));
-      setFailed(true);
+      setError(t('auth.failed'));
     } finally {
       setBusy(false);
     }
-  }
-
-  if (publicPreview)
-    return (
-      <Modal locale={locale} title={t('account.public-preview-title')} onClose={onClose}>
-        <div className="account-intro">
-          <Compass size={30} strokeWidth={1} />
-          <p>{t('account.public-preview-local')}</p>
-          <p className="form-note">{t('account.public-preview-accounts')}</p>
-          <button className="button" onClick={onClose}>
-            {t('continue-exploring')}
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </Modal>
-    );
-
-  if (!configured)
-    return (
-      <Modal locale={locale} title={t('your-place-in-the-club')} onClose={onClose}>
-        <div className="account-intro">
-          <LogIn size={30} strokeWidth={1} />
-          <p>{t('account.unconfigured')}</p>
-          <p className="form-note">{t('the-demo-profile-is-not-a-real-account-posts-votes-and')}</p>
-          <button className="button" onClick={onClose}>
-            {t('continue-exploring')}
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </Modal>
-    );
-
-  const member = account?.member;
-  const signupMode = mode === 'signup' && account?.signupEnabled === true;
+  };
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    void perform(async () => {
+      if (mode === 'signup') {
+        const result = await club.signup({
+          email: String(data.get('email')),
+          password: String(data.get('password')),
+          displayName: String(data.get('name')),
+          locale,
+        });
+        if (result.emailConfirmationRequired) {
+          setMode('confirm');
+          setMessage(t('auth.confirmEmail'));
+        }
+      } else {
+        await club.login(String(data.get('email')), String(data.get('password')));
+      }
+    });
+  };
+  const onboard = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    void perform(async () => {
+      await club.onboard({
+        username: String(data.get('username')),
+        displayName: String(data.get('name')),
+        locale,
+        accountType,
+        website: String(data.get('website') || ''),
+        contact: String(data.get('contact') || ''),
+      });
+      setMessage(t('auth.profileCreated'));
+    });
+  };
   return (
-    <Modal locale={locale} title={t('your-place-in-the-club')} onClose={onClose}>
-      <div aria-busy={busy || checking}>
-        {checking ? (
-          <p className="form-intro" role="status">
-            {t('account.checking-access')}
+    <Modal
+      locale={locale}
+      title={t(auth.status === 'onboarding' ? 'auth.completeProfile' : 'auth.title')}
+      onClose={onClose}
+    >
+      {auth.status === 'loading' ? (
+        <p role="status">{t('auth.checkingSession')}</p>
+      ) : auth.status === 'unavailable' ? (
+        <p role="alert">{t('common.unconfigured')}</p>
+      ) : auth.status === 'member' ? (
+        <div className="compose-form">
+          <p>
+            {t('auth.signedIn')} <strong>{auth.member?.name}</strong>
           </p>
-        ) : !account ? (
-          <div className="account-intro">
-            <button className="button button-outline" onClick={refreshAccount}>
-              {t('account.retry-connection')}
+          <p>
+            @{auth.member?.username} ·{' '}
+            {t(auth.member?.accountType === 'store' ? 'common.storeDeclared' : 'common.member')}
+          </p>
+          {(auth.role === 'admin' ||
+            auth.role === 'moderator' ||
+            auth.moderatedCommunityIds.length > 0) && (
+            <Link className="text-link" href={`/${locale}/admin`}>
+              {t('nav.moderation')} <ArrowUpRight size={15} />
+            </Link>
+          )}
+          <div className="dialog-footer">
+            <button
+              className="button button-outline"
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  await club.signout();
+                  setMessage(t('auth.signedOut'));
+                })
+              }
+            >
+              {busy ? t('auth.signingOut') : t('auth.signOut')}
+            </button>
+            <button className="button" onClick={onClose}>
+              {t('common.continue')}
             </button>
           </div>
-        ) : account.user ? (
-          <div className="compose-form">
-            <p className="form-intro">
-              {t('signed-in-as')} {account.user.email || t('account.connected-account')}
-            </p>
-            {member ? (
-              <div className="account-intro">
-                <Check size={26} aria-hidden="true" />
-                <p>
-                  <strong>{member.displayName}</strong> · @{member.username}
-                </p>
-                <p>{t('account.membership-active')}</p>
-              </div>
-            ) : account.memberUnavailable || account.onboardingAvailable !== true ? (
-              <>
-                <p className="form-note">{t('account.membership-unavailable')}</p>
-                <button className="text-link" disabled={busy} onClick={refreshAccount}>
-                  {t('account.retry-connection')}
-                </button>
-              </>
-            ) : (
-              <form className="compose-form" onSubmit={joinHorion}>
-                <p className="form-intro">{t('account.join-intro')}</p>
-                <label>
-                  {t('display-name')}
-                  <input
-                    name="name"
-                    autoComplete="name"
-                    minLength={1}
-                    maxLength={80}
-                    required
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  {t('username')}
-                  <input
-                    name="username"
-                    autoComplete="username"
-                    minLength={3}
-                    maxLength={32}
-                    pattern="[a-z0-9_]+"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    required
-                    disabled={busy}
-                    aria-describedby="horion-username-help"
-                  />
-                  <small id="horion-username-help" className="form-note">
-                    {t('account.username-help')}
-                  </small>
-                </label>
-                <p className="form-note">{t('account.join-consent')}</p>
-                <button className="button" type="submit" disabled={busy}>
-                  {busy ? t('please-wait') : t('account.join-horion')}
-                </button>
-              </form>
-            )}
-            <button className="text-link" type="button" disabled={busy} onClick={signOut}>
-              {busy ? t('please-wait') : t('sign-out')}
-            </button>
-          </div>
-        ) : (
-          <>
-            {!account.signupEnabled && (
-              <p className="form-intro">
-                {t(
-                  account.sharedAuth
-                    ? 'account.shared-registration-disabled'
-                    : 'account.registration-disabled'
-                )}
-              </p>
-            )}
-            <form onSubmit={submitAuth} className="compose-form">
-              {signupMode && (
-                <label>
-                  {t('display-name')}
-                  <input
-                    name="name"
-                    autoComplete="name"
-                    minLength={1}
-                    maxLength={80}
-                    required
-                    disabled={busy}
-                  />
-                </label>
-              )}
+        </div>
+      ) : auth.status === 'onboarding' ? (
+        <form className="compose-form" onSubmit={onboard}>
+          <p className="form-intro">{t('auth.joinIntro')}</p>
+          <label>
+            {t('auth.accountType')}
+            <select
+              value={accountType}
+              onChange={(e) => setAccountType(e.target.value as 'member' | 'store')}
+            >
+              <option value="member">{t('auth.memberType')}</option>
+              <option value="store">{t('auth.storeType')}</option>
+            </select>
+          </label>
+          <label>
+            {t(accountType === 'store' ? 'auth.storeName' : 'auth.displayName')}
+            <input
+              name="name"
+              autoComplete="name"
+              minLength={2}
+              maxLength={80}
+              required
+              defaultValue=""
+            />
+          </label>
+          <label>
+            {t('auth.username')}
+            <input
+              name="username"
+              autoComplete="username"
+              pattern="[a-z0-9_]{3,32}"
+              minLength={3}
+              maxLength={32}
+              required
+            />
+            <small>{t('auth.usernameHelp')}</small>
+          </label>
+          {accountType === 'store' && (
+            <>
               <label>
-                {t('email')}
-                <input
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  maxLength={254}
-                  disabled={busy}
-                />
+                {t('auth.website')}
+                <input name="website" type="url" placeholder="https://" maxLength={500} />
               </label>
               <label>
-                {t('password')}
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete={signupMode ? 'new-password' : 'current-password'}
-                  minLength={signupMode ? 12 : 1}
-                  maxLength={128}
-                  required
-                  disabled={busy}
-                />
+                {t('auth.contact')}
+                <input name="contact" type="email" maxLength={254} />
+                <small>{t('auth.publicContactHelp')}</small>
               </label>
-              {signupMode && (
-                <p className="form-note">
-                  {t('at-least-12-characters-never-reuse-an-important-password')}
-                </p>
-              )}
-              <button className="button" type="submit" disabled={busy}>
-                {busy ? t('please-wait') : signupMode ? t('create-account') : t('sign-in')}
-              </button>
-              {account.signupEnabled && (
-                <button
-                  className="text-link"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setMode(mode === 'login' ? 'signup' : 'login');
-                    setStatus('');
-                    setFailed(false);
-                  }}
-                >
-                  {mode === 'login'
-                    ? t('new-here-create-an-account')
-                    : t('already-a-member-sign-in')}
-                </button>
-              )}
-            </form>
-          </>
-        )}
-        {status && (
-          <p
-            role={failed ? 'alert' : 'status'}
-            className={failed ? 'form-error' : 'inline-feedback'}
+              <p className="form-note">{t('auth.storeDisclaimer')}</p>
+            </>
+          )}
+          <p className="form-note">{t('auth.joinConsent')}</p>
+          <button className="button" disabled={busy}>
+            {busy ? t('common.saving') : t('auth.joinHorion')}
+          </button>
+        </form>
+      ) : mode === 'confirm' ? (
+        <form
+          className="compose-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void perform(async () => {
+              try {
+                await club.confirmEmailLink(confirmationLink);
+                setMessage(t('auth.accountCreated'));
+              } finally {
+                setConfirmationLink('');
+              }
+            });
+          }}
+        >
+          <p>
+            {text(
+              'Check your email. Copy the confirmation link from the message and paste it below to confirm your account here.',
+              'Confira seu e-mail. Copie o link de confirmação da mensagem e cole abaixo para confirmar sua conta aqui.'
+            )}
+          </p>
+          <label>
+            {text('Email confirmation link', 'Link de confirmação do e-mail')}
+            <input
+              type="url"
+              value={confirmationLink}
+              onChange={(e) => setConfirmationLink(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              required
+              maxLength={4096}
+            />
+          </label>
+          <p className="form-note">
+            {text(
+              'This link is private. Only use the confirmation message you requested for your own account.',
+              'Este link é privado. Use apenas a mensagem de confirmação que você solicitou para sua própria conta.'
+            )}
+          </p>
+          <button className="button" disabled={busy}>
+            {busy ? t('common.loading') : t('common.confirm')}
+          </button>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setMode('login');
+              setError('');
+              setMessage('');
+            }}
           >
-            {status}
-          </p>
-        )}
-        <p className="form-note" style={{ marginTop: 18 }}>
-          {t('account.local-preview')}
+            {text('Already confirmed? Sign in', 'Já confirmou? Entrar')}
+          </button>
+        </form>
+      ) : (
+        <form className="compose-form" onSubmit={submit}>
+          <p className="form-intro">{t('auth.subtitle')}</p>
+          <div className="account-tabs">
+            <button
+              type="button"
+              aria-pressed={mode === 'login'}
+              onClick={() => {
+                setMode('login');
+                setError('');
+              }}
+            >
+              {t('auth.signIn')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === 'signup'}
+              disabled={!auth.signupEnabled}
+              onClick={() => {
+                setMode('signup');
+                setError('');
+              }}
+            >
+              {t('auth.signUp')}
+            </button>
+          </div>
+          {mode === 'signup' && (
+            <label>
+              {t('auth.displayName')}
+              <input name="name" autoComplete="name" minLength={2} maxLength={80} required />
+            </label>
+          )}
+          <label>
+            {t('auth.email')}
+            <input type="email" name="email" autoComplete="email" required maxLength={254} />
+          </label>
+          <label>
+            {t('auth.password')}
+            <input
+              type="password"
+              name="password"
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              minLength={mode === 'signup' ? 12 : 1}
+              maxLength={128}
+              pattern={mode === 'signup' ? '(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{12,128}' : undefined}
+              required
+            />
+            {mode === 'signup' && <small>{t('auth.passwordHelp')}</small>}
+          </label>
+          {mode === 'signup' && (
+            <p className="form-note">
+              {text(
+                'After confirming your email, choose a member or store profile. Your sign-in identity is shared with Rango; Horion content and permissions are separate.',
+                'Após confirmar o e-mail, escolha um perfil de membro ou loja. Sua identidade de acesso é compartilhada com o Rango; o conteúdo e as permissões do Horion são separados.'
+              )}
+            </p>
+          )}
+          <button className="button" disabled={busy || (mode === 'signup' && !auth.signupEnabled)}>
+            {busy ? t('common.loading') : t(mode === 'signup' ? 'auth.signUp' : 'auth.signIn')}
+            <ArrowUpRight size={16} />
+          </button>
+          {!auth.signupEnabled && <p className="form-note">{t('auth.registrationDisabled')}</p>}
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setMode('confirm');
+              setError('');
+              setMessage('');
+            }}
+          >
+            {text(
+              'Confirm an account with an email link',
+              'Confirmar uma conta com o link do e-mail'
+            )}
+          </button>
+        </form>
+      )}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
         </p>
-      </div>
+      )}
+      {message && (
+        <p className="inline-feedback" role="status">
+          {message}
+        </p>
+      )}
     </Modal>
   );
 }

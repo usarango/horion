@@ -6,7 +6,7 @@ import { assertSameOrigin, handleError, json, parseBody } from '@/lib/supabase/h
 
 const email = z.string().email().max(254);
 const sharingNotice =
-  'Horion shares Supabase authentication with Rango. Signing in does not enroll you in Horion. Horion membership requires your explicit request; product preview records remain local.';
+  'Horion shares Supabase authentication with Rango. Signing in does not enroll you in Horion. Create your Horion member or store profile explicitly to participate.';
 const input = z.discriminatedUnion('action', [
   // Existing shared-project credentials retain their existing password requirements.
   z.object({ action: z.literal('login'), email, password: z.string().min(1).max(128) }).strict(),
@@ -102,7 +102,7 @@ export async function GET() {
       sharedAuth: true,
       notice: sharingNotice,
     };
-    if (!user)
+    if (authError || !user)
       return json({
         ...capabilities,
         user: null,
@@ -114,7 +114,7 @@ export async function GET() {
       });
     const { data: member, error } = await supabase
       .from('profiles')
-      .select('id,username,display_name,locale')
+      .select('id,username,display_name,locale,account_type,website,contact_email')
       .eq('id', user.id)
       .maybeSingle();
     return json({
@@ -126,6 +126,9 @@ export async function GET() {
             username: member.username,
             displayName: member.display_name,
             locale: member.locale,
+            accountType: member.account_type,
+            website: member.website || '',
+            contact: member.contact_email || '',
           }
         : null,
       onboardingAvailable: !error,

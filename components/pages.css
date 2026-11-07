@@ -1825,3 +1825,82 @@
 .cpage-dialog .button-outline:hover {
   background: var(--soft-green, #e9eee7);
 }
+/* Live records use their own photography; an empty record remains an honest placeholder. */
+.cpage-watch-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 210px;
+  background: var(--ivory, #f2efe6);
+  color: var(--muted, #777970);
+}
+.cpage-dialog > .cpage-watch-placeholder {
+  height: 220px;
+  min-height: 220px;
+  margin-bottom: 20px;
+}
+.cpage-passport-photo > .cpage-watch-placeholder {
+  min-height: 440px;
+  height: 100%;
+}
+.cpage-member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 50px;
+  height: 50px;
+  background: var(--ivory, #f2efe6);
+  color: var(--green, #19352d);
+  font: 22px var(--serif, Georgia, serif);
+  letter-spacing: 0.02em;
+  border: 1px solid var(--line, #deded3);
+}
+.cpage-member-detail > .cpage-member-avatar {
+  width: 70px;
+  height: 70px;
+  font-size: 30px;
+  margin: 0 0 18px;
+}
+.cpage-member-detail > p {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 8px 0;
+  color: var(--muted, #777970);
+}
+.cpage-member-detail > .eyebrow {
+  font-size: 9px;
+}
+.cpage-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.cpage-live-community-grid {
+  margin-top: 25px;
+}
+.cpage-settings > section > div {
+  min-width: 0;
+}
+.cpage-specs dd,
+.cpage-member-detail p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .cpage-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .cpage-watch-placeholder {
+    min-height: 150px;
+  }
+  .cpage-passport-photo > .cpage-watch-placeholder {
+    min-height: 260px;
+  }
+  .cpage-member-avatar {
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+  }
+}

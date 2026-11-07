@@ -8,13 +8,19 @@ import { detectFileType } from '../lib/supabase/upload-validation';
 // only server route modules in Node, so the marker is an empty test-only module.
 const marker = registerHooks({
   resolve(specifier, context, next) {
-    return specifier === 'server-only'
-      ? {
-          url: new URL('./helpers/server-only.cjs', import.meta.url).href,
-          format: 'commonjs',
-          shortCircuit: true,
-        }
-      : next(specifier, context);
+    if (specifier === 'server-only')
+      return {
+        url: new URL('./helpers/server-only.cjs', import.meta.url).href,
+        format: 'commonjs',
+        shortCircuit: true,
+      };
+    if (specifier === 'next/headers')
+      return {
+        url: new URL('./helpers/route-cookies.cjs', import.meta.url).href,
+        format: 'commonjs',
+        shortCircuit: true,
+      };
+    return next(specifier, context);
   },
 });
 const original = {
@@ -62,7 +68,109 @@ const request = (path: string, body: unknown, origin = 'http://localhost:3000') 
     body: JSON.stringify(body),
   });
 
-test('unconfigured authentication discloses demo mode without creating an account', async () => {
+type Cookie = { name: string; value: string };
+const routeGlobals = globalThis as typeof globalThis & {
+  __horionRouteCookieJar?: Cookie[];
+};
+const memberId = 'a1111111-1111-4111-8111-111111111111';
+const authenticatedUser = {
+  id: memberId,
+  aud: 'authenticated',
+  role: 'authenticated',
+  email: 'private-login@example.test',
+  created_at: '2026-11-07T00:00:00Z',
+  app_metadata: { provider: 'email', providers: ['email'] },
+  user_metadata: {},
+};
+const storeProfile = {
+  id: memberId,
+  username: 'horion_store',
+  display_name: 'A watch store',
+  locale: 'pt-BR',
+  account_type: 'store',
+  website: 'https://shop.example.test',
+  contact_email: 'public-contact@example.test',
+};
+
+async function withBackend(
+  authenticated: boolean,
+  action: (
+    calls: { path: string; body: Record<string, unknown> | null; headers: Headers }[]
+  ) => Promise<void>
+) {
+  const previous = {
+    fetch: globalThis.fetch,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    signup: process.env.HORION_ALLOW_SHARED_SIGNUP,
+    cookies: routeGlobals.__horionRouteCookieJar,
+  };
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const token = [
+    { alg: 'HS256', typ: 'JWT' },
+    { sub: memberId, exp: expires, aud: 'authenticated', role: 'authenticated' },
+  ]
+    .map((part) => Buffer.from(JSON.stringify(part)).toString('base64url'))
+    .concat('test-signature')
+    .join('.');
+  const session = {
+    access_token: token,
+    refresh_token: 'test-refresh-token',
+    expires_at: expires,
+    expires_in: 3600,
+    token_type: 'bearer',
+    user: authenticatedUser,
+  };
+  const calls: { path: string; body: Record<string, unknown> | null; headers: Headers }[] = [];
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://horion-test.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_only';
+  process.env.HORION_ALLOW_SHARED_SIGNUP = 'true';
+  routeGlobals.__horionRouteCookieJar = authenticated
+    ? [
+        {
+          name: 'horion-auth',
+          value: 'base64-' + Buffer.from(JSON.stringify(session)).toString('base64url'),
+        },
+      ]
+    : [];
+  globalThis.fetch = async (input, init) => {
+    const outbound = new Request(input, init);
+    const path = new URL(outbound.url).pathname;
+    const text = await outbound.text();
+    calls.push({ path, body: text ? JSON.parse(text) : null, headers: outbound.headers });
+    const data =
+      path === '/auth/v1/user'
+        ? authenticatedUser
+        : path === '/rest/v1/rpc/onboard_member'
+          ? [storeProfile]
+          : path === '/rest/v1/profiles'
+            ? storeProfile
+            : path === '/auth/v1/signup'
+              ? authenticatedUser
+              : undefined;
+    assert.notEqual(data, undefined, `Unexpected test backend path: ${path}`);
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    await action(calls);
+  } finally {
+    globalThis.fetch = previous.fetch;
+    routeGlobals.__horionRouteCookieJar = previous.cookies;
+    for (const [key, value] of Object.entries({
+      NEXT_PUBLIC_SUPABASE_URL: previous.url,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: previous.key,
+      HORION_ALLOW_SHARED_SIGNUP: previous.signup,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('unconfigured authentication reports unavailable accounts without inventing a session', async () => {
   const response = await auth.GET();
   assert.equal(response.status, 200);
   const status = await response.json();
@@ -72,12 +180,13 @@ test('unconfigured authentication discloses demo mode without creating an accoun
   assert.equal(status.signupEnabled, false);
   assert.equal(status.sharedAuth, true);
   assert.match(status.notice, /shares.*Rango/i);
+  assert.doesNotMatch(status.notice, /preview|demonstration|local records/i);
   const signup = await auth.POST(
     request('/api/auth', {
       action: 'signup',
       email: 'collector@example.test',
-      password: 'Safe-demo-password-1',
-      displayName: 'Demo',
+      password: 'Safe-test-password-1',
+      displayName: 'Test account',
     })
   );
   assert.equal(signup.status, 503);
@@ -166,10 +275,131 @@ test('explicit membership validates its own fields and never creates an account 
     { username: 'collector', displayName: 'A Collector', locale: 'en', user_id: 'forged' },
     { username: '../admin', displayName: 'A Collector', locale: 'en' },
     { username: 'collector', displayName: 'A Collector', locale: 'unsupported' },
+    { username: 'collector', displayName: 'A Collector', locale: 'en', accountType: 'moderator' },
+    {
+      username: 'collector',
+      displayName: 'A Collector',
+      locale: 'en',
+      website: 'javascript:alert(1)',
+    },
+    {
+      username: 'collector',
+      displayName: 'A Collector',
+      locale: 'en',
+      website: 'https://user:password@example.test',
+    },
+    { username: 'collector', displayName: 'A Collector', locale: 'en', contact: 'not-an-email' },
   ]) {
     const invalid = await onboarding.POST(request('/api/onboarding', body));
     assert.equal(invalid.status, 400);
   }
+});
+
+test('store onboarding verifies the user and sends all six owner-scoped RPC arguments', async () => {
+  await withBackend(true, async (calls) => {
+    const response = await onboarding.POST(
+      request('/api/onboarding', {
+        username: 'horion_store',
+        displayName: ' A watch store ',
+        locale: 'pt-BR',
+        accountType: 'store',
+        website: ' https://shop.example.test ',
+        contact: ' Public-Contact@Example.test ',
+      })
+    );
+    assert.equal(response.status, 201);
+    const body = await response.json();
+    assert.equal(body.member.accountType, 'store');
+    assert.equal(body.member.website, 'https://shop.example.test');
+    assert.equal(body.member.contact, 'public-contact@example.test');
+    assert.deepEqual(
+      calls.map((call) => call.path),
+      ['/auth/v1/user', '/rest/v1/rpc/onboard_member']
+    );
+    assert.deepEqual(calls[1].body, {
+      p_username: 'horion_store',
+      p_display_name: 'A watch store',
+      p_locale: 'pt-BR',
+      p_account_type: 'store',
+      p_website: 'https://shop.example.test',
+      p_contact_email: 'Public-Contact@Example.test',
+    });
+    assert.equal(calls[1].headers.get('content-profile'), 'horion');
+    assert.match(calls[1].headers.get('authorization') || '', /^Bearer /);
+    assert.equal('p_user_id' in calls[1].body!, false);
+  });
+});
+
+test('member onboarding defaults to member with no public contact and rejects unauthenticated writes', async () => {
+  await withBackend(true, async (calls) => {
+    const response = await onboarding.POST(
+      request('/api/onboarding', {
+        username: 'collector',
+        displayName: 'A Collector',
+        locale: 'en',
+      })
+    );
+    assert.equal(response.status, 201);
+    const rpc = calls.find((call) => call.path === '/rest/v1/rpc/onboard_member');
+    assert.equal(rpc?.body?.p_account_type, 'member');
+    assert.equal(rpc?.body?.p_contact_email, null, 'Auth email must never become public contact');
+    assert.equal(rpc?.body?.p_website, null);
+  });
+  await withBackend(false, async (calls) => {
+    const response = await onboarding.POST(
+      request('/api/onboarding', {
+        username: 'collector',
+        displayName: 'A Collector',
+        locale: 'en',
+      })
+    );
+    assert.equal(response.status, 401);
+    assert.deepEqual(calls, []);
+  });
+});
+
+test('authenticated account status returns stored profile category and optional public contact', async () => {
+  await withBackend(true, async (calls) => {
+    const response = await auth.GET();
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.user.email, 'private-login@example.test');
+    assert.deepEqual(body.member, {
+      id: memberId,
+      username: 'horion_store',
+      displayName: 'A watch store',
+      locale: 'pt-BR',
+      accountType: 'store',
+      website: 'https://shop.example.test',
+      contact: 'public-contact@example.test',
+    });
+    assert.equal(calls[1].headers.get('accept-profile'), 'horion');
+    assert.match(response.headers.get('cache-control') || '', /no-store/);
+  });
+});
+
+test('enabled signup creates only shared Auth credentials and still requires explicit Horion onboarding', async () => {
+  await withBackend(false, async (calls) => {
+    const response = await auth.POST(
+      request('/api/auth', {
+        action: 'signup',
+        email: 'collector@example.test',
+        password: 'Safe-test-password-1',
+        displayName: 'A Collector',
+        locale: 'pt-BR',
+      })
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.emailConfirmationRequired, true);
+    assert.equal(body.horionMembershipCreated, false);
+    assert.deepEqual(
+      calls.map((call) => call.path),
+      ['/auth/v1/signup']
+    );
+    assert.deepEqual(calls[0].body?.data, { display_name: 'A Collector' });
+    assert.doesNotMatch(JSON.stringify(calls[0].body?.data), /role|street|address/);
+  });
 });
 
 test('strict input validation rejects role injection, weak signup passwords and malformed JSON', async () => {
@@ -177,7 +407,7 @@ test('strict input validation rejects role injection, weak signup passwords and 
     request('/api/auth', {
       action: 'signup',
       email: 'collector@example.test',
-      password: 'Safe-demo-password-1',
+      password: 'Safe-test-password-1',
       role: 'admin',
     })
   );

@@ -4,6 +4,8 @@ import { ClubApp } from '../components/club-app';
 import NotFound from '../app/not-found';
 import { parsePreviewRoute, PREVIEW_LOCALE_KEY } from './routes';
 
+declare const __HORION_SIGNUP_ENABLED__: boolean;
+
 let savedLocale: string | null = null;
 try {
   savedLocale = localStorage.getItem(PREVIEW_LOCALE_KEY);
@@ -24,10 +26,10 @@ if (route.kind === 'redirect') {
     document.documentElement.dataset.theme =
       localStorage.getItem('horion-theme') === 'dark' ? 'dark' : 'light';
   } catch {
-    /* Public preview still works without browser persistence. */
+    /* Theme and language preferences are optional; product records stay remote. */
   }
   const root = document.getElementById('root');
-  if (!root) throw new Error('The preview root element is missing.');
+  if (!root) throw new Error('The application root element is missing.');
   createRoot(root).render(
     route.kind === 'not-found' ? (
       <NotFound />
@@ -39,8 +41,8 @@ if (route.kind === 'redirect') {
         sharedPost={route.sharedPost}
         watchId={route.watchId}
         authError={route.authError}
-        backendConfigured={false}
-        publicPreview={true}
+        backendConfigured={true}
+        signupEnabled={__HORION_SIGNUP_ENABLED__}
       />
     )
   );

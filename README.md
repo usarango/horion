@@ -1,21 +1,23 @@
 # HORION WATCH CLUB
 
-Base de produto e desenvolvimento — novembro de 2026.
+Aplicação **Next.js 16, React, TypeScript e Tailwind CSS**, com identidade editorial, inglês/português e dados de produto no **Supabase/PostgreSQL**, protegidos por autorização e RLS.
 
-Aplicação **Next.js 16 / React / TypeScript / Tailwind CSS**, com identidade editorial, navegação em inglês e português, demonstração interativa persistida no navegador e fundação **Supabase / PostgreSQL** com autorização no servidor e RLS.
+**A interface atual está conectada ao banco e começa sem conteúdo semeado.** Não carrega perfis, comunidades, fotografias de catálogo ou publicações fictícias; não usa registros locais como alternativa ao backend. Acesso de conta, cadastro e adesão ao perfil Horion usam o Supabase real. A rodada de navegador verificou os fluxos públicos e a apresentação dos formulários, sem criar contas ou enviar e-mails. A homologação autenticada completa do MVP continua pendente.
 
-**Esta entrega não encerra o MVP multiusuário.** A interface de produto usa dados fictícios locais, com acesso de conta e adesão explícita preparados para usuários existentes. Em 7 de novembro de 2026, a fundação foi aplicada ao Supabase compartilhado do Rango, em schemas próprios, e a Data API foi ativada para `horion` após autorização explícita. As verificações HTTP confirmaram o acesso às tabelas públicas Horion, a recusa de acesso anônimo a documentos/onboarding e a preservação da rota padrão consultada do Rango. O schema `horion_private` permanece sem exposição. Uma [prévia pública interativa](https://horion-watch-club-preview.victortb12.chatgpt.site) foi publicada separadamente, com dados locais e sem APIs de autenticação ou documentos reais. Nenhum projeto Supabase pago foi criado nem pagamento ativado.
+O build Next.js e o artefato estático conectado passaram. A publicação anterior foi a versão pública 1 de avaliação; ela não descreve a implementação live atual. O resultado de uma nova publicação será registrado separadamente após confirmação do serviço. Estado, evidências e limites desta iteração: [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
 
 ## Executar
 
-Requer Node.js 24 LTS e npm. No diretório deste projeto:
+Requer Node.js 24 LTS e npm:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Abra `http://localhost:3000/en` ou `http://localhost:3000/pt-BR`. A rota `/` escolhe inicialmente português quando o idioma preferencial enviado pelo navegador começa com `pt`; nos demais casos escolhe inglês. A seleção manual permanece no prefixo da URL e é lembrada por um cookie de preferência de idioma.
+Configure as variáveis públicas do Supabase conforme `.env.example`, em um arquivo local ignorado pelo Git ou no ambiente de execução. Sem conexão válida, a interface informa a indisponibilidade; não cria uma demonstração substituta. O cadastro depende do controle explícito `HORION_ALLOW_SHARED_SIGNUP`; o build live verificado nesta iteração o habilitou.
+
+Abra `http://localhost:3000/en` ou `http://localhost:3000/pt-BR`. A rota raiz considera a preferência de idioma e o idioma do navegador. A seleção manual usa o prefixo da URL.
 
 ```bash
 npm run typecheck
@@ -24,77 +26,67 @@ npm run build
 npm start
 ```
 
-`npm start` requer o build anterior. O projeto usa Webpack nas tarefas Next.js: o Turbopack tentou abrir uma porta interna não permitida pelo sandbox deste ambiente. Webpack compilou com sucesso. As dependências têm versões exatas e `package-lock.json`.
+`npm start` requer o build anterior. Os comandos Next.js usam Webpack porque o Turbopack encontrou uma restrição de socket no sandbox. Dependências têm versões exatas e lockfile.
 
-Repositório: [usarango/horion](https://github.com/usarango/horion). A escolha de infraestrutura, o projeto compartilhado e os valores de referência do Supabase estão em [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md). A migração atual isola o Horion em `horion` e `horion_private`; a baseline antiga para projeto dedicado foi arquivada e não deve ser aplicada ao Rango.
+Para o adaptador de hospedagem estática conectado:
 
-Não são necessárias credenciais para a demonstração. Consulte `.env.example` e [DATABASE.md](docs/DATABASE.md) antes de configurar Supabase. Os clientes usam cookies `horion-auth`, mas a identidade Auth é compartilhada pelo projeto. A criação de contas permanece desativada por padrão (`HORION_ALLOW_SHARED_SIGNUP=false`); usuários existentes precisam aderir explicitamente ao Horion. Preencher variáveis **não converte os registros demonstrativos em dados remotos**. Nenhum membro foi criado durante a validação e os fluxos autenticados de adesão/Storage ainda precisam de homologação real.
+```bash
+npm run build:preview
+```
 
-## O que é possível experimentar
+O nome do comando é histórico. O manifesto gerado em `dist/` identifica o modo `live-supabase`; o build exige URL HTTPS e chave pública válidas e não inclui rotas de servidor, arquivos de ambiente ou chaves privilegiadas. URL e chave pública são os únicos valores de ambiente Supabase incorporados ao navegador. O controle de cadastro é compilado como booleano.
 
-- Explorar o feed público, ordenar, filtrar idioma e formato, salvar histórias e pesquisar referências, publicações e comunidades.
-- Participar de comunidades, publicar texto/fotografia própria, editar/excluir publicações próprias, votar, comentar e responder.
-- Denunciar uma publicação e experimentar sua revisão na **simulação local** em `/en/admin` ou `/pt-BR/admin`.
-- Adicionar referências à coleção ou wishlist, editar notas/data/estado/visibilidade e criar um Passport para relógios possuídos.
-- Registrar eventos no Passport e visualizar sua timeline, sempre com nível “declarado pelo proprietário”.
-- Editar o perfil fictício, consultar notificações, alternar tema/idioma, exportar JSON e restaurar a demonstração com confirmação.
-- Ler rascunhos editoriais originais e conhecer o planejamento Society sem pagamentos.
+## Funcionalidades conectadas
 
-A fotografia local aceita JPEG, PNG e WebP até 2 MB. Não envie documentos pessoais, séries, preços ou informações sensíveis à demonstração. A preferência local “privado” é um campo de apresentação, não isolamento entre contas. Limpar os dados do navegador remove o estado local. Falhas de armazenamento são informadas e a exportação continua disponível em memória.
+- Feed público, ordenações, filtros e busca usam registros reais; listas vazias apresentam estados vazios.
+- Membros podem criar/participar de comunidades, publicar texto/fotografia, comentar, responder, votar, salvar e denunciar, sujeitos às regras do banco.
+- A coleção aceita referências do catálogo e cadastro manual de relógios; notas e estados pertencem ao membro autenticado; os registros permanecem privados nesta versão.
+- O Passport registra eventos declarados pelo proprietário. O upload de documentos ainda não está disponível na interface desta versão.
+- O perfil permite escolher membro ou loja. Informações de loja são autodeclaradas e não conferem verificação ou autoridade de moderação.
+- Notificações, exportação dos registros carregados e configurações usam a identidade real. A exportação oferecida não substitui o processo completo de atendimento a solicitações legais de dados.
+- A área de moderação exige autorização no servidor/banco. Ser loja não concede esse acesso.
+- Journal e Society apresentam o estado real de disponibilidade, sem artigos, conquistas, assinaturas ou benefícios fictícios. Não há cobrança ou marketplace ativo.
 
-As imagens do catálogo são **ilustrativas e não identificam a referência exata**. Especificações desconhecidas foram omitidas. Atividade social, proprietários e contagens são fictícios. Referências, fontes e licenças estão documentadas em [ASSETS.md](docs/ASSETS.md).
+Essas funcionalidades estão ligadas ao backend no código; a validação em navegador desta rodada foi anônima. Não foi realizado um percurso autenticado completo com publicação, interação entre duas contas ou armazenamento de documentos.
 
-## Estrutura principal
+## Identidade e segurança
 
-| Arquivo/pasta                                                       | Finalidade                                                                                                                 |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `app/[locale]/[[...path]]/page.tsx`                                 | Rotas públicas bilíngues e metadados                                                                                       |
-| `components/club-app.tsx`                                           | Shell, navegação, home editorial, feed, publicação e acesso de conta                                                       |
-| `components/club-pages.tsx`                                         | Explore, comunidades, catálogo, coleção, Passport, Journal, Society, perfil, notificações, configurações e moderação local |
-| `app/globals.css`, `components/pages.css`                           | Tokens claros/escuros, tipografia local, responsividade e movimento reduzido                                               |
-| `lib/domain.ts`, `lib/store.tsx`                                    | Invariantes, ranking determinístico, validação do estado e persistência demonstrativa                                      |
-| `lib/demo-data.ts`                                                  | Dados fictícios e referências de demonstração                                                                              |
-| `lib/i18n.ts`, `lib/messages/`                                      | Dicionários e funções de internacionalização                                                                               |
-| `lib/supabase/`, `proxy.ts`                                         | Clientes SSR, renovação de sessão, validação e autorização                                                                 |
-| `app/api/`, `app/auth/callback/`                                    | Endpoints reais de Auth, comunidade, imagens e documentos privados                                                         |
-| `supabase/migrations/20261107003648_horion_shared_foundation.sql`   | Fundação compartilhada aplicada: schemas próprios, constraints, índices, privilégios, RLS, Storage e auditoria             |
-| `supabase/migrations/20261107004514_horion_shared_performance.sql`  | Ajuste aplicado somente no Horion: cinco índices compostos de FK e consolidação de policy de edição de posts               |
-| `supabase/operations/20261107004936_horion_shared_api_exposure.sql` | Configuração de ambiente autorizada e aplicada: exposição de `horion`, mantendo os schemas públicos anteriores             |
-| `tests/`                                                            | Testes do domínio, da migration e dos handlers reais                                                                       |
+O projeto Supabase é compartilhado com o Rango. Horion usa schemas `horion`/`horion_private` e cookies próprios `horion-auth`; o diretório Auth, SMTP, cotas e configurações de identidade continuam compartilhados. Uma conta de acesso só recebe perfil Horion por adesão explícita.
 
-## Relatório das fases
+A confirmação de e-mail é necessária. A interface aceita o link recebido por e-mail e o valida contra a origem Supabase configurada, sem alterar o redirect global do projeto. A entrega de mensagens, templates/SMTP e criação de contas reais ainda precisam de homologação. Nenhum endereço de teste foi cadastrado nesta rodada.
 
-| Fase             | Entrega desta iteração                                                                                             | Banco                                                                                                 | Pendência para encerramento                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1 — Fundação     | Arquitetura modular; design system; rotas bilíngues; Auth SSR com cookies próprios; onboarding explícito preparado | Fundação aplicada ao Rango: 37 tabelas com RLS e Data API ativa para `horion`                         | Validar identidade, adesão e sessões reais                                                     |
-| 2 — Comunidade   | Publicar/foto, editar/excluir, comentários/respostas, votos, comunidades, busca e revisão na demonstração          | Posts, memberships, comentários, votos, mídias, denúncias, bloqueios e auditoria aplicados com RLS    | Conectar a UI aos endpoints e validar duas contas e moderador                                  |
-| 3 — Colecionismo | Catálogo ilustrativo, coleção/wishlist, edição e Passport com eventos na demonstração                              | Catálogo, dados pessoais separados, passaportes/eventos/documentos e buckets Horion aplicados         | Catálogo revisado; integração remota; testes reais de upload e expiração de links              |
-| 4 — Clube        | Apresentação Society; reputação separada de assinatura na modelagem                                                | Ledger, regras/níveis/insígnias, planos/entitlements/assinaturas; gravação de mérito negada ao membro | Fluxo confiável de concessão/reversão, antifraude e benefícios; nenhum pagamento ativo         |
-| 5 — Conteúdo     | Journal navegável com rascunhos originais bilíngues                                                                | Conteúdo editorial e estados de publicação preparados                                                 | Editor administrativo, artigos públicos individuais, SEO de produção e integrações autorizadas |
-| 6 — Comercial    | Limites e plano do Exchange documentados                                                                           | Marketplace e transações não ativados                                                                 | Modelagem detalhada, KYC, disputas, políticas e avaliação regulatória/provedores               |
+A Data API expõe `public,graphql_public,horion`; o schema privado fica fora dela. A lista é controlada por override SQL autorizado do papel `authenticator`. Alterações no Dashboard não a controlarão enquanto ele existir; para devolver o controle, conferir a lista necessária antes de `RESET pgrst.db_schemas` e recarga.
 
-Decisões e plano de continuidade: [ARCHITECTURE.md](docs/ARCHITECTURE.md) e [ROADMAP.md](docs/ROADMAP.md). Detalhes de schema, permissões, testes e configuração: [DATABASE.md](docs/DATABASE.md).
+O fingerprint dos metadados protegidos do Rango permaneceu igual após a migração live. Isso comprova as definições observadas, não um checksum de todos os dados de clientes ou homologação de todos os fluxos do Rango. Detalhes: [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) e [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
 
-## Validação e limites
+A concessão administrativa inicial foi vinculada privadamente à identidade existente confirmada indicada pelo proprietário e será ativada na adesão real. Nenhum perfil foi criado para simular esse acesso. A inspeção remota final observou zero perfis Horion, comunidades, publicações e referências de catálogo.
 
-Verificação final: **65/65 testes passaram**, sem casos ignorados, falhas ou cancelamentos; `npm run typecheck` e `npm run build` passaram, com `.env.local` carregado no build. Os detalhes estão em [VALIDATION.md](docs/VALIDATION.md). Testes SQL executam a cadeia completa das duas migrações em PostgreSQL embarcado via PGlite, com representações mínimas dos schemas Auth/Storage. Testes de API invocam os handlers reais com `NextRequest`, sem servidor HTTP ou credenciais. Isso verifica regras e falhas explícitas, mas não substitui a homologação de Supabase Auth, Storage e PostgREST.
+## Arquivos principais
 
-A inspeção remota preservou o fingerprint dos metadados protegidos do Rango, inclusive após a configuração da API. A rota padrão consultada, perfis e comunidades Horion responderam `200`; o schema privado recebeu `406/PGRST106`, e documentos/onboarding anônimos receberam `401/42501`. Evidências: [SHARED_DATABASE_VERIFICATION.json](docs/SHARED_DATABASE_VERIFICATION.json).
+| Área                               | Arquivos                                                           |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| Navegação e feed                   | `components/club-app.tsx`, `app/[locale]/[[...path]]/page.tsx`     |
+| Páginas do produto                 | `components/club-pages.tsx`                                        |
+| Dados, sessão e operações reais    | `lib/store.tsx`, `lib/live/`, `lib/supabase/`                      |
+| Traduções                          | `lib/live-i18n.ts`, `lib/messages/live-en.json`, `live-pt-BR.json` |
+| Estilos                            | `app/globals.css`, `components/pages.css`, `components/live.css`   |
+| Modelo e autorização               | `supabase/migrations/`                                             |
+| Configuração da API deste ambiente | `supabase/operations/`                                             |
+| Build estático conectado           | `preview/entry.tsx`, `scripts/build-public-preview.mjs`            |
+| Testes                             | `tests/`                                                           |
 
-A inspeção visual em navegador e os testes ponta a ponta com contas reais **não foram executados**. O ambiente de Sites estava marcado como gerenciado, mas não disponibilizava o recurso `cua_repl.js` exigido pelo fluxo de QA; a verificação ficou restrita ao build, TypeScript e testes automatizados locais. Não há afirmação de acessibilidade, responsividade ou performance homologadas em dispositivos reais.
+O dataset anterior permanece apenas como fixture de testes legados e não entra no grafo do build live. As cinco fotografias antigas foram removidas do projeto e do artefato público.
 
-## Operação da Data API
+## Validação e continuidade
 
-A revisão automática inicialmente rejeitou o override de `authenticator.pgrst.db_schemas`. Após a autorização explícita do proprietário para a configuração SQL e seu efeito sobre o Dashboard, a operação **`20261107004936_horion_shared_api_exposure` foi aplicada com sucesso**. O registro inicial permanece arquivado em [docs/operations/proposed_api_role_override.sql.txt](docs/operations/proposed_api_role_override.sql.txt); a versão executada está em `supabase/operations/`.
+Passaram **116/116 testes automatizados**, incluindo 50 casos SQL e nove testes de concessão administrativa diferida. `npm run typecheck`, build Next.js de produção e build estático conectado também passaram.
 
-A lista efetiva é **`public,graphql_public,horion`**, preservando `public` como padrão e mantendo `horion_private` fora da API. A lista agora é controlada pelo override SQL; alterações futuras no Dashboard não a controlarão enquanto ele existir. Para devolver esse controle ao Dashboard, revisar/preservar todos os schemas necessários antes de executar `RESET pgrst.db_schemas` e recarregar a configuração.
+Passaram **26 cenários de navegador**: quatro combinações EN/PT × desktop/mobile na home/acesso e 22 visitas às páginas secundárias. Não houve erros de console, exceções de página, violações de CSP, requisições falhas ou overflow nas larguras verificadas. As capturas foram inspecionadas. O build também recusou URL insegura, chave ausente e chave secreta antes de alterar o artefato existente.
 
-## Próxima etapa
+Outros **quatro cenários de onboarding de loja** passaram com todas as chamadas Supabase interceptadas: validaram argumentos enviados, preservação de campos em falha e atualização do perfil após resposta simulada. Eles não criaram contas/lojas reais nem substituem a homologação autenticada no backend.
 
-Homologar a adesão explícita de usuários existentes, sessões, isolamento entre membros e Storage; então conectar a interface de produto e validar os 15 critérios do MVP. SMTP, políticas legais, processamento de exportação/exclusão, tratamento completo de imagens/documentos e testes ponta a ponta são dependências de lançamento. Publicação em produção, despesas e ativação de pagamentos continuam sujeitos à aprovação solicitada no briefing.
+A suíte local verifica domínio, operações, handlers, internacionalização e PostgreSQL/RLS com PGlite. Ela não substitui e-mail real, sessão confirmada, isolamento entre membros em navegador, upload/download ou auditoria completa de acessibilidade. Os registros detalhados do QA atual estão em [LIVE_RELEASE.md](docs/LIVE_RELEASE.md); [VALIDATION.md](docs/VALIDATION.md) preserva a rodada histórica da fundação.
 
-## Publicação de avaliação
+As próximas etapas são homologar confirmação e adesão com contas reais, isolamento entre membros, moderação autorizada e uploads; concluir documentos privados, processamento de dados pessoais e políticas operacionais. Reputação, Society, Journal editorial e Exchange continuam seguindo o roteiro em [ROADMAP.md](docs/ROADMAP.md), sem antecipar pagamentos.
 
-Acesse: https://horion-watch-club-preview.victortb12.chatgpt.site — versão pública 1, publicada e verificada por HTTP sem credenciais.
-
-O destino Sites usa uma prévia estática do mesmo produto, gerada por `npm run build:preview`, sem conexões com o Supabase. Ela permite avaliar as interações locais e identifica o acesso de conta/documentos reais como indisponível nessa publicação. O build Next.js principal permanece disponível. Escopo, operação e resultado de deploy: [PUBLIC_PREVIEW.md](docs/PUBLIC_PREVIEW.md).
+Repositório: [usarango/horion](https://github.com/usarango/horion). [PUBLIC_PREVIEW.md](docs/PUBLIC_PREVIEW.md) é o registro histórico da versão pública 1; o código e o build atuais seguem a configuração live descrita acima.

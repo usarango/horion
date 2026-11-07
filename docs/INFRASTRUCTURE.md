@@ -2,6 +2,8 @@
 
 Estado verificado em 7 de novembro de 2026.
 
+O código atual usa dados reais do Supabase, sem conteúdo semeado. O QA anônimo passou em 26 cenários desktop/mobile e inglês/português. O estado da entrega live, os limites dos testes e a confirmação de nova publicação estão em [LIVE_RELEASE.md](LIVE_RELEASE.md). [PUBLIC_PREVIEW.md](PUBLIC_PREVIEW.md) descreve apenas a versão pública 1 histórica.
+
 ## Código
 
 Repositório: [usarango/horion](https://github.com/usarango/horion), branch de trabalho `codex/horion-foundation`. A base preserva o commit inicial da `main`. Envio de código e PR não publicam o site; não há workflow de deploy nesta entrega.
@@ -21,6 +23,10 @@ A migration **`20261107003648_horion_shared_foundation`** consta no histórico r
 
 A segunda migration aplicada, **`20261107004514_horion_shared_performance`**, acrescentou cinco índices compostos para FKs e consolidou duas policies de UPDATE de posts em uma. A combinação OR das condições `USING` e `WITH CHECK` foi preservada. Essas alterações se limitam aos objetos Horion.
 
+A migration **`20261107032737_horion_live_community`** foi aplicada na iteração conectada, incluindo os recursos necessários para perfis membro/loja e operações comunitárias reais. O fingerprint protegido do Rango continuou idêntico após sua aplicação. A migration **`20261107033322_horion_deferred_admin_roles`** também foi aplicada, com concessão administrativa diferida e moderação atômica. Os nove testes dessa concessão fazem parte da suíte SQL aprovada.
+
+A autorização administrativa inicial foi vinculada privadamente à identidade Auth existente e confirmada indicada pelo proprietário, com ativação na adesão real ao Horion. Não foi criado perfil de exemplo ou membro automático. A inspeção remota final observou zero perfis Horion, comunidades, publicações e referências. E-mails e identificadores de administradores não são publicados no repositório.
+
 A baseline anterior para projeto dedicado foi arquivada; a versão atual não usa os nomes de tabelas do `public` do Rango. O fingerprint dos metadados protegidos existentes permaneceu **`4577a6a52b5e12c77a187d75b01282b0`** antes e depois das migrações e da configuração da API. Esse levantamento cobriu definições de tabelas, colunas, índices, funções, constraints e RLS do `public`, hooks Auth existentes, buckets/policies e privilégios padrão; não é checksum de todos os dados de clientes nem teste ponta a ponta do Rango. Os resultados estão em [SHARED_DATABASE_VERIFICATION.json](SHARED_DATABASE_VERIFICATION.json).
 
 ## Data API ativa
@@ -39,9 +45,9 @@ Referências oficiais: [schemas customizados](https://supabase.com/docs/guides/a
 
 Os clientes acessam o schema `horion` e usam cookies próprios `horion-auth`. O diretório Auth, as cotas, o SMTP e as configurações de identidade continuam globais ao projeto. Cookies separados não tornam independentes as identidades.
 
-`HORION_ALLOW_SHARED_SIGNUP=false` mantém a criação de contas desativada por padrão. Usuários existentes precisam aderir explicitamente para criar o perfil Horion; não foi adicionado um hook global de signup do Horion. Não se deve habilitar cadastro ou excluir identidades compartilhadas como se o projeto atendesse somente a esta aplicação.
+O controle `HORION_ALLOW_SHARED_SIGNUP` continua fechado por padrão no código, mas foi habilitado explicitamente no build live desta iteração. O cadastro utiliza Auth real e exige confirmação de e-mail; o perfil Horion de membro ou loja é criado por adesão explícita após autenticação. Não foi adicionado um hook global de signup do Horion. Uma nova identidade pode acionar os hooks preexistentes do projeto Rango, por isso o compartilhamento continua relevante mesmo com cookies separados.
 
-A interface de produto continua demonstrativa e local. Configurar as variáveis de ambiente habilita os clientes preparados, mas não migra registros fictícios nem conecta automaticamente o feed, a coleção ou o Passport ao banco remoto.
+A interface de produto lê e grava os registros no Supabase, sem restaurar o dataset de demonstração nem usar armazenamento local como fallback. As listas ficam vazias quando não existem registros. O QA desta rodada abriu login/cadastro/confirmação por link, mas não criou contas, enviou e-mails ou executou uma sessão autenticada completa. O template/SMTP e a entrega de confirmação permanecem sem homologação real.
 
 ## Custos de referência
 
@@ -53,6 +59,6 @@ Fontes oficiais: [preços](https://supabase.com/pricing), [compute e créditos](
 
 ## Continuidade
 
-Validação final local: 65/65 testes, TypeScript e build aprovados, incluindo build com `.env.local`. A análise remota de segurança apresentou quatro avisos informativos de acesso direto intencionalmente negado. A de performance apresentou 51 avisos informativos de índices ainda sem uso, compatíveis com a ausência de atividade da aplicação, sem aviso Horion de FK sem índice ou múltiplas policies permissivas. Detalhes e limites: [VALIDATION.md](VALIDATION.md).
+Passaram **116/116 testes automatizados**, incluindo 50 casos SQL, além de TypeScript e dos builds Next.js e estático conectado. Também passaram 26 cenários de navegador com consultas anônimas reais, sem erros de console/CSP/rede ou overflow nas larguras verificadas, e quatro casos de onboarding com rede inteiramente simulada. Os resultados da análise de segurança/performance da fundação permanecem como evidência histórica em [VALIDATION.md](VALIDATION.md), não como nova execução dos advisors após cada mudança live.
 
-Testar adesão autenticada e isolamento entre membros, homologar Storage e sessões, conectar a interface de produto e preparar deploy separado. Signup segue desativado e a UI de produto permanece demonstrativa. Publicação em produção, despesas e pagamentos permanecem fora da execução autorizada atual.
+Homologar confirmação de e-mail, adesão autenticada, isolamento entre membros, moderação autorizada, Storage e sessões. A nova publicação faz parte desta iteração e só será descrita como concluída após confirmação do serviço. Mudanças de plano, despesas novas, pagamentos e transações não foram realizadas.

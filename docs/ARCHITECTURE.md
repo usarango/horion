@@ -1,5 +1,7 @@
 # Arquitetura do Horion
 
+> **Registro histórico — fundação, 7 de novembro de 2026.** Esta página registra a arquitetura da fundação anterior à conversão da interface para dados reais. As referências a demonstração local descrevem aquela etapa e não o código live atual. Consulte [LIVE_RELEASE.md](LIVE_RELEASE.md) para o estado atual e seus limites.
+
 ## Escopo desta base
 
 O Horion começa como um monólito modular: uma aplicação Next.js com React e TypeScript e uma base PostgreSQL gerenciada pelo Supabase. Os módulos compartilham identidade e referências, sem exigir microserviços. Em 7 de novembro de 2026, a fundação compartilhada foi aplicada ao projeto Rango `bkjjzujujedqbsrppvpt`, com isolamento em `horion` e `horion_private`. Uma prévia estática pública separada foi publicada em https://horion-watch-club-preview.victortb12.chatgpt.site, com interações locais e sem conexão ao backend. Nenhum pagamento foi ativado.

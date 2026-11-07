@@ -103,11 +103,7 @@ const action = z.discriminatedUnion('action', [
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    if (!supabase)
-      return json(
-        { error: 'Supabase is not configured. Local demonstration data is separate.' },
-        503
-      );
+    if (!supabase) return json({ error: 'Horion is not connected. Please try again later.' }, 503);
     const resource = request.nextUrl.searchParams.get('resource') || 'posts';
     const page = Math.min(
       10000,

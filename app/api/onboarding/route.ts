@@ -7,6 +7,23 @@ const input = z
     username: z.string().regex(/^[a-z0-9_]{3,32}$/),
     displayName: z.string().trim().min(1).max(80),
     locale: z.enum(['en', 'pt-BR', 'es']),
+    accountType: z.enum(['member', 'store']).default('member'),
+    website: z
+      .string()
+      .trim()
+      .max(500)
+      .refine((value) => {
+        if (!value) return true;
+        try {
+          const url = new URL(value);
+          return url.protocol === 'https:' && !url.username && !url.password;
+        } catch {
+          return false;
+        }
+      })
+      .optional(),
+    // Deliberately public profile contact, never copied from the Auth email.
+    contact: z.string().trim().max(254).email().or(z.literal('')).optional(),
   })
   .strict();
 
@@ -22,6 +39,9 @@ export async function POST(request: NextRequest) {
       p_username: body.username,
       p_display_name: body.displayName,
       p_locale: body.locale,
+      p_account_type: body.accountType,
+      p_website: body.website || null,
+      p_contact_email: body.contact || null,
     });
     if (error) {
       if (error.code === '23505')
@@ -48,6 +68,9 @@ export async function POST(request: NextRequest) {
           username: member.username,
           displayName: member.display_name,
           locale: member.locale,
+          accountType: member.account_type,
+          website: member.website || '',
+          contact: member.contact_email || '',
         },
       },
       201

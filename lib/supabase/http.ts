@@ -33,11 +33,7 @@ export async function parseBody<T>(request: NextRequest, schema: z.ZodType<T>) {
 }
 export async function requireUser() {
   const supabase = await createClient();
-  if (!supabase)
-    throw json(
-      { error: 'Supabase is not configured. This installation runs in demonstration mode.' },
-      503
-    );
+  if (!supabase) throw json({ error: 'Horion is not connected. Please try again later.' }, 503);
   const {
     data: { user },
     error,

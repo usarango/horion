@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { ClubApp } from '@/components/club-app';
 import type { Locale } from '@/lib/domain';
 import { navigation } from '@/lib/i18n';
-import { getSupabaseConfig } from '@/lib/supabase/config';
+import { getSupabaseConfig, sharedSignupEnabled } from '@/lib/supabase/config';
 const routes = [
   'home',
   'explore',
@@ -43,6 +43,7 @@ export default async function Page({ params, searchParams }: Props) {
       query={query.q || ''}
       sharedPost={query.post}
       backendConfigured={!!getSupabaseConfig()}
+      signupEnabled={sharedSignupEnabled()}
       authError={query.auth === 'failed'}
       watchId={query.watch}
     />

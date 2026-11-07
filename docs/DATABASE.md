@@ -1,5 +1,7 @@
 # Horion — banco, segurança e integração
 
+> **Registro histórico — fundação, 7 de novembro de 2026.** Este documento detalha a fundação e as verificações da etapa anterior à iteração live. Os estados de interface/cadastro e contagens de testes dessa etapa não descrevem a versão conectada atual. Consulte [LIVE_RELEASE.md](LIVE_RELEASE.md) para o estado atual e seus limites.
+
 O destino aprovado é o projeto Supabase já usado pelo Rango (`bkjjzujujedqbsrppvpt`), com isolamento aditivo. Identidades Auth, capacidade e administração do projeto são compartilhadas; tabelas, permissões da aplicação, cookies e buckets Horion têm namespaces próprios. Consulte também [INFRASTRUCTURE.md](INFRASTRUCTURE.md).
 
 ## Estado entregue

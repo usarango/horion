@@ -1,4 +1,6 @@
-# Prévia pública do Horion
+# Registro histórico — prévia pública 1 do Horion
+
+> Este documento descreve somente a versão pública 1, uma demonstração anterior. O código e o build atuais foram substituídos pela aplicação conectada ao Supabase, sem conteúdo semeado. Consulte [LIVE_RELEASE.md](LIVE_RELEASE.md) para a iteração atual. A versão antiga e seus resultados abaixo não descrevem os recursos live.
 
 A publicação de avaliação utiliza o mesmo componente `ClubApp`, estilos, fontes, fotografias e fluxos demonstrativos do projeto Next.js. Um adaptador estático separado permite hospedar essa experiência no Sites sem substituir a aplicação principal.
 

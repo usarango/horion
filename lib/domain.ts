@@ -3,6 +3,8 @@ export type PostType = 'Photography' | 'Discussion' | 'Review' | 'Question';
 export type WatchStatus = 'owned' | 'previously-owned' | 'wishlist';
 export interface Comment {
   id: string;
+  authorId?: string;
+  username?: string;
   author: string;
   body: string;
   createdAt: string;
@@ -10,13 +12,15 @@ export interface Comment {
 }
 export interface Post {
   id: string;
+  authorId?: string;
+  communityId?: string;
   title: string;
   body: string;
   author: string;
   username: string;
   community: string;
   type: PostType;
-  language: Locale;
+  language: Locale | 'es';
   image?: string;
   votes: number;
   comments: Comment[];
@@ -31,7 +35,7 @@ export interface Community {
   slug: string;
   name: string;
   description: string;
-  members: number;
+  members?: number;
   image: string;
   category: string;
 }
@@ -52,13 +56,18 @@ export interface UserWatch {
   notes: string;
   acquiredAt: string;
   visibility: 'private' | 'public';
+  label?: string;
+  brand?: string;
+  model?: string;
+  referenceText?: string;
+  image?: string;
 }
 export interface PassportEvent {
   id: string;
   type: string;
   date: string;
   description: string;
-  verification: 'owner-declared';
+  verification: 'owner-declared' | 'documents-presented' | 'partner-verified';
 }
 export interface Passport {
   id: string;
@@ -67,10 +76,14 @@ export interface Passport {
   events: PassportEvent[];
 }
 export interface Profile {
+  id?: string;
   name: string;
   username: string;
   bio: string;
   country: string;
+  accountType?: 'member' | 'store';
+  website?: string;
+  contact?: string;
 }
 export interface DemoState {
   posts: Post[];

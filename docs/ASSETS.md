@@ -1,5 +1,7 @@
 # Origem dos recursos visuais
 
+> **Registro histórico das fotografias.** As cinco fotografias abaixo foram removidas do projeto na conversão para a aplicação live e não são publicadas no artefato atual. A relação de fontes permanece válida para as famílias tipográficas servidas localmente. Estado atual: [LIVE_RELEASE.md](LIVE_RELEASE.md).
+
 Recursos baixados em 6 de novembro de 2026 e servidos localmente, sem dependência de uma CDN durante a navegação. As imagens foram abertas e inspecionadas para verificar que são fotografias de relógios. Não houve geração de relógios ou alteração de marcas nas fotografias.
 
 ## Fotografias

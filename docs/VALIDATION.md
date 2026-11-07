@@ -1,5 +1,7 @@
 # Validação desta iteração
 
+> **Registro histórico — fundação, 7 de novembro de 2026.** Registro histórico da validação da fundação. A contagem de 65 testes e a indisponibilidade de QA em navegador abaixo pertencem àquela rodada; o runtime atualizado permitiu Playwright e 26 cenários reais anônimos passaram na iteração live. Consulte [LIVE_RELEASE.md](LIVE_RELEASE.md) para o estado atual e seus limites.
+
 Atualizado em 7 de novembro de 2026. Ambiente: Node.js 24.22.1, npm 11.9.0.
 
 ## Verificações locais

@@ -12,7 +12,7 @@ import type { LiveClient } from '../lib/live/types';
 const user = { id: 'confirmed-user' };
 const tokenResponse = {
   access_token: 'test-access-token-for-an-authenticated-session',
-  refresh_token: 'test-refresh-token-for-the-session',
+  refresh_token: 'ab12cd34ef56',
 };
 function authClient(
   options: {
@@ -126,6 +126,7 @@ test('malformed registration responses never establish a session or report succe
   for (const response of [
     null,
     {},
+    { ...tokenResponse, refresh_token: '' },
     { access_token: 'short', refresh_token: 'short' },
     { ...tokenResponse, privilegedKey: 'must-not-be-accepted' },
   ]) {

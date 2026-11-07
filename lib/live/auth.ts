@@ -77,7 +77,9 @@ async function invokePasswordEntry(
     );
   }
   const tokens = z
-    .object({ access_token: z.string().min(20), refresh_token: z.string().min(16) })
+    // Refresh tokens are opaque; GoTrue also issues valid 12-character tokens.
+    // Their validity is checked by setSession/getUser, not an invented length.
+    .object({ access_token: z.string().min(20), refresh_token: z.string().min(1) })
     .strict()
     .safeParse(result);
   if (!tokens.success) throw new RegistrationError('session_failed');

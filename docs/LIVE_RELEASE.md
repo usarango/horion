@@ -1,4 +1,27 @@
-# Horion: base conectada e verificação em navegador
+# Horion: versão pública 4 — cadastro sem e-mail
+
+Publicada com estado `succeeded` em **7 de novembro de 2026, 05:17:29 UTC**, no [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). Proveniência em [PUBLICATION.json](PUBLICATION.json). Código da aplicação: `79fbc89`; source vinculado: `480f787f81aaca276fcbb06caabfc549b7a50f64`.
+
+O cadastro usa a Edge Function `horion-register` versão 1 para criar a identidade e estabelecer sessão sem aguardar e-mail. A entrada em uma conta pendente valida a senha antes de confirmar somente aquela identidade; senhas, metadados e papéis existentes são preservados. O perfil de membro/loja continua sendo criado por adesão explícita. Detalhes: [NO_EMAIL_AUTH.md](NO_EMAIL_AUTH.md).
+
+A migration `20261107044651_horion_registration_gateway` foi aplicada e acrescentou controle privado de tentativas e duas RPCs exclusivas do backend. Ambas recusaram acesso anônimo com `401/42501`. O `mailer_autoconfirm` global permanece `false`; as quatro Edge Functions anteriores do Rango conservaram suas versões. O fingerprint protegido permanece `4577a6a52b5e12c77a187d75b01282b0`. O advisor não apresentou WARN/ERROR do Horion; seis INFO correspondem a tabelas com acesso direto intencionalmente negado.
+
+## Validação atual
+
+- **148/148 testes** aprovados, incluindo **61 cenários SQL**. TypeScript e builds Next.js/estático aprovados.
+- Endpoint publicado: preflight 204; corpo inválido 400; origem não permitida 403; login de teste inexistente 401, sem criar conta.
+- Quatro cenários EN/PT em desktop 1440 px/mobile 390 px, com **rede Supabase inteiramente simulada**, passaram: refresh token de exatamente 12 caracteres, sessão verificada, onboarding direto sem formulário de e-mail e saída com remoção do cookie. Foram 32 chamadas interceptadas por cenário, nenhuma chamada real e nenhum erro/overflow. Capturas inspecionadas. Artefatos locais: `/tmp/horion-browser-qa/no-email-mocked-results/`.
+- No teste real anterior, o backend criou uma identidade temporária confirmada e emitiu sessão, sem criar perfil Horion. O frontend rejeitou um token válido por exigir comprimento mínimo indevido. Essa validação foi corrigida para tratar o token de renovação como opaco; o formato real de 12 caracteres passou a integrar os testes. O JavaScript corrigido publicado é `horion-EJKFFQ44.js`, com `horion-DEA3PXVQ.css`.
+
+A primeira tentativa real não foi um E2E bem-sucedido da interface. A repetição completa de cadastro e recuperação pendente ainda não foi executada: a revisão automática bloqueou a exclusão da identidade temporária, pois o Auth compartilhado permite cascata para o registro de cliente correspondente no Rango. Foi solicitada autorização para alterar apenas os estados das contas temporárias de QA e removê-las depois. Nenhuma exclusão indireta foi usada para contornar a decisão. A identidade de teste permanece privada no Auth, com papel Rango `customer`, sem perfil ou conteúdo Horion.
+
+A versão 4 já está publicada; os cenários simulados não são apresentados como prova de autenticação completa no navegador contra o backend real. Não há homologação de publicação/interação entre contas, documentos, moderação autenticada ou todos os dispositivos. Nenhum pagamento ou marketplace foi ativado.
+
+## Histórico: entrega e QA da versão 2
+
+As informações abaixo registram a versão 2 anterior. Suas referências à confirmação por e-mail, ao build antigo e aos 116 testes são históricas e foram substituídas pelo estado da versão 4 acima.
+
+### Registro da versão 2
 
 Estado observado em 7 de novembro de 2026. A **versão pública 2** foi publicada pelo Sites às 03:38 UTC, com estado `succeeded`, em [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). Este registro descreve a implementação conectada e distingue os testes públicos, simulados e as pendências de homologação autenticada. A proveniência está em [PUBLICATION.json](PUBLICATION.json).
 

@@ -1,6 +1,6 @@
 # Cadastro Horion sem confirmação de e-mail
 
-Implementação preparada em 7 de novembro de 2026. A ativação remota e a versão pública correspondente devem ser conferidas em `PUBLICATION.json`.
+A versão pública 4 foi publicada em 7 de novembro de 2026, às 05:17:29 UTC. A Edge Function `horion-register` versão 1 e a migration `20261107044651_horion_registration_gateway` estão ativas. Proveniência e limites de QA em [PUBLICATION.json](PUBLICATION.json) e [LIVE_RELEASE.md](LIVE_RELEASE.md).
 
 O Horion utiliza uma Edge Function própria, `horion-register`, para cadastrar uma identidade com senha e estabelecer uma sessão imediatamente. A configuração global de confirmação do projeto compartilhado permanece preservada; o fluxo público normal do Rango e suas Edge Functions não são substituídos.
 
@@ -23,6 +23,6 @@ Desativar a etapa significa que o cadastro não comprova posse do endereço de e
 
 ## Verificação e operação
 
-Os testes automatizados cobrem cadastro novo, duplicidade, conta pendente, senha incorreta, recusa de privilégios, limites, corpo excessivo, CORS e estabelecimento real da sessão no cliente. A referência à ordem de validação do GoTrue deve ser reavaliada quando o Auth for atualizado.
+Os 148 testes automatizados cobrem cadastro novo, duplicidade, conta pendente, senha incorreta, recusa de privilégios, limites, corpo excessivo, CORS e o contrato de estabelecimento de sessão no cliente. Os tokens de renovação são tratados como opacos: o GoTrue observado emite tokens válidos de 12 caracteres, aceitos sem comprimento mínimo arbitrário. Quatro cenários com rede integralmente simulada verificaram a sessão e o onboarding direto. O reteste real completo aguarda autorização de alteração e limpeza das identidades temporárias; não é apresentado como concluído. A referência à ordem de validação do GoTrue deve ser reavaliada quando o Auth for atualizado.
 
 A pasta `supabase/functions` pertence ao runtime Deno e fica fora do build Next.js; seu handler é verificado pelos testes Node e seu entrypoint pelo serviço de Edge Functions no deploy. A chave privilegiada é obtida apenas do ambiente padrão desse serviço. O build público continua incorporando somente a URL/chave pública Supabase.

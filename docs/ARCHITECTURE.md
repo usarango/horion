@@ -2,7 +2,7 @@
 
 ## Escopo desta base
 
-O Horion começa como um monólito modular: uma aplicação Next.js com React e TypeScript e uma base PostgreSQL gerenciada pelo Supabase. Os módulos compartilham identidade e referências, sem exigir microserviços. Em 7 de novembro de 2026, a fundação compartilhada foi aplicada ao projeto Rango `bkjjzujujedqbsrppvpt`, com isolamento em `horion` e `horion_private`. Nenhum site ou pagamento foi ativado.
+O Horion começa como um monólito modular: uma aplicação Next.js com React e TypeScript e uma base PostgreSQL gerenciada pelo Supabase. Os módulos compartilham identidade e referências, sem exigir microserviços. Em 7 de novembro de 2026, a fundação compartilhada foi aplicada ao projeto Rango `bkjjzujujedqbsrppvpt`, com isolamento em `horion` e `horion_private`. Uma prévia estática pública separada foi publicada em https://horion-watch-club-preview.victortb12.chatgpt.site, com interações locais e sem conexão ao backend. Nenhum pagamento foi ativado.
 
 Há duas fronteiras que precisam permanecer explícitas:
 

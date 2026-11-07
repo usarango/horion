@@ -71,10 +71,18 @@ O ambiente gerenciado não disponibilizou `cua_repl.js`, exigido pelo fluxo de Q
 - Antiabuso completo, antimalware, remoção de EXIF e limpeza de objetos órfãos.
 - Exportação/exclusão de dados pessoais com retenção definida; exclusão sem apagar indevidamente identidade e dados Rango.
 - Concessão/reversão de mérito, assinaturas, pagamentos e marketplace completos.
-- Deploy e publicação em produção.
+- Deploy da aplicação multiusuário integrada; a prévia estática pública já foi publicada.
 
 Uma execução isolada dos testes de segurança do PGlite apresentou falha nativa do V8/WASM no Node.js 24. A execução foi estabilizada com as flags V8 verificadas `--no-wasm-tier-up --no-wasm-async-compilation`, agora presentes em `scripts.test`. Nenhum teste foi ignorado e nenhum SQL foi contornado; a rodada final passou integralmente.
 
-O Turbopack tentou abrir uma porta interna bloqueada pelo sandbox; os comandos usam Webpack. Caches npm usam `/tmp/horion-npm-cache`, pois o diretório de usuário é somente leitura. Nenhum novo projeto pago, mudança de plano, deploy ou transação financeira foi realizado.
+O Turbopack tentou abrir uma porta interna bloqueada pelo sandbox; os comandos usam Webpack. Caches npm usam `/tmp/horion-npm-cache`, pois o diretório de usuário é somente leitura. Foi publicada somente a prévia estática pública. Nenhum novo projeto Supabase pago, mudança de plano ou transação financeira foi realizado.
 
 As projeções públicas utilizadas pelos endpoints de posts (autor/comunidade/mídias), catálogo (modelo/coleção/marca/fontes) e comunidades também foram executadas por HTTP no schema `horion`: todas responderam 200 com zero registros. Isso verifica os relacionamentos publicados na API, sem representar conteúdo real ou fluxo autenticado. Após versionar a operação de ambiente aplicada, seus três testes locais existentes foram executados novamente e passaram; TypeScript também passou.
+
+## Publicação da prévia interativa
+
+A rodada desta publicação passou em 69 testes locais, sem falhas ou casos ignorados, além de TypeScript, build Next.js e build da prévia. O adaptador reutiliza o componente do produto e emite 26 caminhos de idiomas/páginas com ativos locais, sem backend ou arquivos de ambiente.
+
+O Sites confirmou sucesso da versão pública 1 em https://horion-watch-club-preview.victortb12.chatgpt.site. As provas HTTP sem credenciais retornaram 200 para raiz, inglês, português, coleção, Passport, configurações, JavaScript, CSS, ícone, fotografia e fonte. A primeira requisição com o agente padrão de Python recebeu 403; requisições com agente de navegador retornaram 200. Não se alterou a política de rede nem se usou token de bypass para a verificação. O teste HTTP não substitui a inspeção visual em navegador, que permanece não realizada por indisponibilidade do helper gerenciado.
+
+Os registros de versão, deployment e checks estão em [PUBLICATION.json](PUBLICATION.json). A publicação usa dados fictícios por navegador e não habilita contas ou documentos privados reais; a aplicação Next.js e o Supabase compartilhado ficam preservados para a integração posterior.

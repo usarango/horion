@@ -4,7 +4,7 @@ Base de produto e desenvolvimento — novembro de 2026.
 
 Aplicação **Next.js 16 / React / TypeScript / Tailwind CSS**, com identidade editorial, navegação em inglês e português, demonstração interativa persistida no navegador e fundação **Supabase / PostgreSQL** com autorização no servidor e RLS.
 
-**Esta entrega não encerra o MVP multiusuário.** A interface de produto usa dados fictícios locais, com acesso de conta e adesão explícita preparados para usuários existentes. Em 7 de novembro de 2026, a fundação foi aplicada ao Supabase compartilhado do Rango, em schemas próprios, e a Data API foi ativada para `horion` após autorização explícita. As verificações HTTP confirmaram o acesso às tabelas públicas Horion, a recusa de acesso anônimo a documentos/onboarding e a preservação da rota padrão consultada do Rango. O schema `horion_private` permanece sem exposição. Nenhum site foi publicado, projeto pago foi criado ou pagamento foi ativado.
+**Esta entrega não encerra o MVP multiusuário.** A interface de produto usa dados fictícios locais, com acesso de conta e adesão explícita preparados para usuários existentes. Em 7 de novembro de 2026, a fundação foi aplicada ao Supabase compartilhado do Rango, em schemas próprios, e a Data API foi ativada para `horion` após autorização explícita. As verificações HTTP confirmaram o acesso às tabelas públicas Horion, a recusa de acesso anônimo a documentos/onboarding e a preservação da rota padrão consultada do Rango. O schema `horion_private` permanece sem exposição. Uma [prévia pública interativa](https://horion-watch-club-preview.victortb12.chatgpt.site) foi publicada separadamente, com dados locais e sem APIs de autenticação ou documentos reais. Nenhum projeto Supabase pago foi criado nem pagamento ativado.
 
 ## Executar
 
@@ -94,5 +94,7 @@ A lista efetiva é **`public,graphql_public,horion`**, preservando `public` como
 Homologar a adesão explícita de usuários existentes, sessões, isolamento entre membros e Storage; então conectar a interface de produto e validar os 15 critérios do MVP. SMTP, políticas legais, processamento de exportação/exclusão, tratamento completo de imagens/documentos e testes ponta a ponta são dependências de lançamento. Publicação em produção, despesas e ativação de pagamentos continuam sujeitos à aprovação solicitada no briefing.
 
 ## Publicação de avaliação
+
+Acesse: https://horion-watch-club-preview.victortb12.chatgpt.site — versão pública 1, publicada e verificada por HTTP sem credenciais.
 
 O destino Sites usa uma prévia estática do mesmo produto, gerada por `npm run build:preview`, sem conexões com o Supabase. Ela permite avaliar as interações locais e identifica o acesso de conta/documentos reais como indisponível nessa publicação. O build Next.js principal permanece disponível. Escopo, operação e resultado de deploy: [PUBLIC_PREVIEW.md](docs/PUBLIC_PREVIEW.md).

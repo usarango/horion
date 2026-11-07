@@ -21,10 +21,16 @@ O comando produz `dist/` com HTML para a raiz, 404 e 26 caminhos de idiomas/pág
 
 O build valida que seu grafo não contém `app/api`, `lib/supabase` ou arquivos de ambiente. Não copiar `.env.local`, chaves, `node_modules`, `.next` ou dados pessoais para o pacote publicado. A publicação usa o commit enviado ao repositório de fonte vinculado ao Sites e um arquivo tar de `.openai/hosting.json` mais `dist/` daquele estado.
 
-O projeto de hospedagem é `appgprj_6aee7ac648588191b59bc6edc9f687fb`. A URL de destino fornecida pelo serviço é `https://horion-watch-club-preview.victortb12.chatgpt.site`; a publicação só é considerada concluída após o retorno de sucesso da ferramenta nativa de deploy. O resultado efetivo deve ser registrado abaixo após confirmação.
+O projeto de hospedagem é `appgprj_6aee7ac648588191b59bc6edc9f687fb`. A URL de destino fornecida pelo serviço é `https://horion-watch-club-preview.victortb12.chatgpt.site`; a publicação foi confirmada com sucesso pela ferramenta nativa de deploy e o acesso público foi verificado por HTTP, sem credenciais.
 
 ## Verificações
 
 TypeScript, 69 testes locais e build da prévia passaram. A inspeção do artefato confirmou os caminhos, referências de JS/CSS/imagens/fontes e ausência de backend ou arquivos de ambiente. Esses checks não substituem teste visual no navegador.
 
 O helper de source/build do Sites e `cua_repl.js` não estavam disponíveis neste executor. Por isso, a preparação usa o contrato nativo de fonte Git e arquivo tar de artefato estático. Não foi iniciado servidor de preview nem improvisado controle de navegador. A publicação será verificada pelo resultado nativo do serviço e por requisições HTTP quando disponíveis.
+
+## Publicação confirmada
+
+Versão pública 1: https://horion-watch-club-preview.victortb12.chatgpt.site
+
+Fonte Sites: `62afb0956a2f0b13a5d3be5bce19fbbfd554b93c`. Deployment: `appgdep_6aee7cd60bc08191a2ae2d73bafdd064`. O pacote contém somente o manifesto e `dist/`, e seu conteúdo corresponde ao estado de fonte enviado ao Sites. As páginas principais, bundles e ativos responderam 200. Evidência: [PUBLICATION.json](PUBLICATION.json).

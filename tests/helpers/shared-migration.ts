@@ -23,5 +23,13 @@ export async function loadActiveHorionMigrations() {
       'Expected a versioned Horion migration chain with exactly one shared foundation.'
     );
   }
-  return Promise.all(names.map((name) => readFile(new URL(name, directory), 'utf8')));
+  const migrations = await Promise.all(
+    names.map((name) => readFile(new URL(name, directory), 'utf8'))
+  );
+  // Supabase supplies this platform role. Minimal PGlite fixtures supply only
+  // anon/authenticated; emulate the existing role without altering production SQL.
+  return [
+    `do $$ begin if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role bypassrls; end if; end $$;`,
+    ...migrations,
+  ];
 }

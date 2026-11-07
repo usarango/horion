@@ -6,12 +6,7 @@ import { createClient } from './supabase/client';
 import { getSupabaseConfig } from './supabase/config';
 import type { PassportEventInput, Post, PostInput, Profile, WatchStatus } from './domain';
 import { loadLiveState } from './live/load';
-import {
-  confirmLiveEmail,
-  loginLiveAccount,
-  signoutLiveAccount,
-  signupLiveAccount,
-} from './live/auth';
+import { loginLiveAccount, signoutLiveAccount, signupLiveAccount } from './live/auth';
 import {
   addLivePassportEvent,
   addLiveWatch,
@@ -63,7 +58,6 @@ export interface ClubStore {
   refresh(): Promise<void>;
   login(email: string, password: string): Promise<void>;
   signup(input: SignupInput): Promise<{ emailConfirmationRequired: boolean }>;
-  confirmEmailLink(url: string): Promise<void>;
   onboard(input: OnboardingInput): Promise<void>;
   signout(): Promise<void>;
   publishPost(input: PostInput): Promise<void>;
@@ -275,18 +269,9 @@ export function ClubProvider({
         enabled: signupAllowed.current,
         origin: window.location.origin,
       });
-      if (!result.emailConfirmationRequired) {
-        clearIdentity();
-        await refresh();
-      }
-      return result;
-    },
-    async confirmEmailLink(url) {
-      const config = getSupabaseConfig();
-      if (!config) throw new Error('Horion is not connected. Please try again later.');
-      await confirmLiveEmail(client(), url, config.url);
       clearIdentity();
       await refresh();
+      return result;
     },
     async onboard(input) {
       if (!current.current.auth.user)

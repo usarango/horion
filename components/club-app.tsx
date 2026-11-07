@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { ClubProvider, useClub } from '@/lib/store';
 import { liveT } from '@/lib/live-i18n';
+import { RegistrationError } from '@/lib/live/auth';
 import {
   rankPosts,
   type Comment,
@@ -1175,12 +1176,11 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
   const club = useClub();
   const { auth } = club;
   const t = (key: Parameters<typeof liveT>[1]) => liveT(locale, key);
-  const [mode, setMode] = useState<'login' | 'signup' | 'confirm'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [accountType, setAccountType] = useState<'member' | 'store'>('member');
-  const [confirmationLink, setConfirmationLink] = useState('');
   const text = (en: string, pt: string) => (locale === 'pt-BR' ? pt : en);
   const perform = async (action: () => Promise<void>) => {
     if (busy) return;
@@ -1189,8 +1189,15 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
     setMessage('');
     try {
       await action();
-    } catch {
-      setError(t('auth.failed'));
+    } catch (cause) {
+      setError(
+        cause instanceof RegistrationError && cause.code === 'rate_limited'
+          ? text(
+              'Too many attempts. Wait before trying again.',
+              'Muitas tentativas. Aguarde antes de tentar novamente.'
+            )
+          : t('auth.failed')
+      );
     } finally {
       setBusy(false);
     }
@@ -1200,16 +1207,12 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
     const data = new FormData(event.currentTarget);
     void perform(async () => {
       if (mode === 'signup') {
-        const result = await club.signup({
+        await club.signup({
           email: String(data.get('email')),
           password: String(data.get('password')),
           displayName: String(data.get('name')),
           locale,
         });
-        if (result.emailConfirmationRequired) {
-          setMode('confirm');
-          setMessage(t('auth.confirmEmail'));
-        }
       } else {
         await club.login(String(data.get('email')), String(data.get('password')));
       }
@@ -1328,59 +1331,19 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
           <button className="button" disabled={busy}>
             {busy ? t('common.saving') : t('auth.joinHorion')}
           </button>
-        </form>
-      ) : mode === 'confirm' ? (
-        <form
-          className="compose-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void perform(async () => {
-              try {
-                await club.confirmEmailLink(confirmationLink);
-                setMessage(t('auth.accountCreated'));
-              } finally {
-                setConfirmationLink('');
-              }
-            });
-          }}
-        >
-          <p>
-            {text(
-              'Check your email. Copy the confirmation link from the message and paste it below to confirm your account here.',
-              'Confira seu e-mail. Copie o link de confirmação da mensagem e cole abaixo para confirmar sua conta aqui.'
-            )}
-          </p>
-          <label>
-            {text('Email confirmation link', 'Link de confirmação do e-mail')}
-            <input
-              type="url"
-              value={confirmationLink}
-              onChange={(e) => setConfirmationLink(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              required
-              maxLength={4096}
-            />
-          </label>
-          <p className="form-note">
-            {text(
-              'This link is private. Only use the confirmation message you requested for your own account.',
-              'Este link é privado. Use apenas a mensagem de confirmação que você solicitou para sua própria conta.'
-            )}
-          </p>
-          <button className="button" disabled={busy}>
-            {busy ? t('common.loading') : t('common.confirm')}
-          </button>
           <button
             type="button"
             className="text-link"
-            onClick={() => {
-              setMode('login');
-              setError('');
-              setMessage('');
-            }}
+            disabled={busy}
+            onClick={() =>
+              void perform(async () => {
+                await club.signout();
+                setMode('login');
+                setMessage(t('auth.signedOut'));
+              })
+            }
           >
-            {text('Already confirmed? Sign in', 'Já confirmou? Entrar')}
+            {t('auth.signOut')}
           </button>
         </form>
       ) : (
@@ -1435,8 +1398,8 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
           {mode === 'signup' && (
             <p className="form-note">
               {text(
-                'After confirming your email, choose a member or store profile. Your sign-in identity is shared with Rango; Horion content and permissions are separate.',
-                'Após confirmar o e-mail, escolha um perfil de membro ou loja. Sua identidade de acesso é compartilhada com o Rango; o conteúdo e as permissões do Horion são separados.'
+                'Create your account and choose a member or store profile. No email confirmation is required. Your sign-in identity is shared with Rango; Horion content and permissions are separate.',
+                'Crie sua conta e escolha um perfil de membro ou loja. Não é necessário confirmar o e-mail. Sua identidade de acesso é compartilhada com o Rango; o conteúdo e as permissões do Horion são separados.'
               )}
             </p>
           )}
@@ -1445,20 +1408,6 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
             <ArrowUpRight size={16} />
           </button>
           {!auth.signupEnabled && <p className="form-note">{t('auth.registrationDisabled')}</p>}
-          <button
-            type="button"
-            className="text-link"
-            onClick={() => {
-              setMode('confirm');
-              setError('');
-              setMessage('');
-            }}
-          >
-            {text(
-              'Confirm an account with an email link',
-              'Confirmar uma conta com o link do e-mail'
-            )}
-          </button>
         </form>
       )}
       {error && (

@@ -96,7 +96,8 @@ async function withBackend(
   authenticated: boolean,
   action: (
     calls: { path: string; body: Record<string, unknown> | null; headers: Headers }[]
-  ) => Promise<void>
+  ) => Promise<void>,
+  options: { registrationStatus?: number; registrationPayload?: unknown; loginError?: string } = {}
 ) {
   const previous = {
     fetch: globalThis.fetch,
@@ -139,18 +140,29 @@ async function withBackend(
     const text = await outbound.text();
     calls.push({ path, body: text ? JSON.parse(text) : null, headers: outbound.headers });
     const data =
-      path === '/auth/v1/user'
-        ? authenticatedUser
-        : path === '/rest/v1/rpc/onboard_member'
-          ? [storeProfile]
-          : path === '/rest/v1/profiles'
-            ? storeProfile
-            : path === '/auth/v1/signup'
-              ? authenticatedUser
-              : undefined;
+      path === '/auth/v1/token'
+        ? options.loginError
+          ? { error_code: options.loginError, msg: 'Unable to sign in.' }
+          : session
+        : path === '/auth/v1/user'
+          ? authenticatedUser
+          : path === '/rest/v1/rpc/onboard_member'
+            ? [storeProfile]
+            : path === '/rest/v1/profiles'
+              ? storeProfile
+              : path === '/functions/v1/horion-register'
+                ? options.registrationPayload === undefined
+                  ? { access_token: token, refresh_token: session.refresh_token }
+                  : options.registrationPayload
+                : undefined;
     assert.notEqual(data, undefined, `Unexpected test backend path: ${path}`);
     return new Response(JSON.stringify(data), {
-      status: 200,
+      status:
+        path === '/functions/v1/horion-register'
+          ? options.registrationStatus || 200
+          : path === '/auth/v1/token' && options.loginError
+            ? 400
+            : 200,
       headers: { 'content-type': 'application/json' },
     });
   };
@@ -378,7 +390,7 @@ test('authenticated account status returns stored profile category and optional 
   });
 });
 
-test('enabled signup creates only shared Auth credentials and still requires explicit Horion onboarding', async () => {
+test('enabled signup establishes a verified Horion session without an email step and leaves onboarding explicit', async () => {
   await withBackend(false, async (calls) => {
     const response = await auth.POST(
       request('/api/auth', {
@@ -391,15 +403,135 @@ test('enabled signup creates only shared Auth credentials and still requires exp
     );
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.equal(body.emailConfirmationRequired, true);
-    assert.equal(body.horionMembershipCreated, false);
-    assert.deepEqual(
-      calls.map((call) => call.path),
-      ['/auth/v1/signup']
+    assert.equal(body.emailConfirmationRequired, false);
+    assert.equal(body.userId, memberId);
+    assert.ok(
+      routeGlobals.__horionRouteCookieJar?.some((cookie) => cookie.name.startsWith('horion-auth')),
+      'session cookies must be established'
     );
-    assert.deepEqual(calls[0].body?.data, { display_name: 'A Collector' });
-    assert.doesNotMatch(JSON.stringify(calls[0].body?.data), /role|street|address/);
+    assert.equal(body.horionMembershipCreated, false);
+    assert.equal(calls[0].path, '/functions/v1/horion-register');
+    assert.equal(calls[0].headers.get('Origin'), 'http://localhost:3000');
+    assert.deepEqual(calls[0].body, {
+      email: 'collector@example.test',
+      password: 'Safe-test-password-1',
+      displayName: 'A Collector',
+      locale: 'pt-BR',
+    });
+    assert.ok(calls.slice(1).every((call) => call.path === '/auth/v1/user'));
+    assert.ok(
+      calls.some((call) => call.path === '/auth/v1/user'),
+      'server must verify user after establishing a session'
+    );
+    assert.doesNotMatch(
+      JSON.stringify(calls[0].body),
+      /user_metadata|role|street|address|email_confirm|redirect/
+    );
   });
+});
+
+test('server pending-account login invokes only password-verifying repair and establishes cookies', async () => {
+  await withBackend(
+    false,
+    async (calls) => {
+      const response = await auth.POST(
+        request('/api/auth', {
+          action: 'login',
+          email: 'collector@example.test',
+          password: 'legacy',
+        })
+      );
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).userId, memberId);
+      assert.deepEqual(
+        calls.slice(0, 2).map((call) => call.path),
+        ['/auth/v1/token', '/functions/v1/horion-register']
+      );
+      assert.deepEqual(calls[1].body, {
+        intent: 'login',
+        email: 'collector@example.test',
+        password: 'legacy',
+      });
+      assert.equal(calls[1].headers.get('Origin'), 'http://localhost:3000');
+      assert.ok(
+        routeGlobals.__horionRouteCookieJar?.some((cookie) => cookie.name.startsWith('horion-auth'))
+      );
+    },
+    { loginError: 'email_not_confirmed' }
+  );
+});
+
+test('server wrong-password login cannot call registration or confirmation repair', async () => {
+  await withBackend(
+    false,
+    async (calls) => {
+      const response = await auth.POST(
+        request('/api/auth', {
+          action: 'login',
+          email: 'collector@example.test',
+          password: 'incorrect-password',
+        })
+      );
+      assert.equal(response.status, 401);
+      assert.deepEqual(
+        calls.map((call) => call.path),
+        ['/auth/v1/token']
+      );
+      assert.equal(routeGlobals.__horionRouteCookieJar?.length, 0);
+    },
+    { loginError: 'invalid_credentials' }
+  );
+});
+
+test('server signup rejects malformed backend sessions without creating a success or leaking tokens', async () => {
+  await withBackend(
+    false,
+    async (calls) => {
+      const response = await auth.POST(
+        request('/api/auth', {
+          action: 'signup',
+          email: 'collector@example.test',
+          password: 'Safe-test-password-1',
+          displayName: 'Collector',
+        })
+      );
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).ok, undefined);
+      assert.deepEqual(
+        calls.map((call) => call.path),
+        ['/functions/v1/horion-register']
+      );
+      assert.equal(routeGlobals.__horionRouteCookieJar?.length, 0);
+    },
+    { registrationPayload: {} }
+  );
+});
+
+test('server signup preserves throttling feedback without requesting an email or session', async () => {
+  await withBackend(
+    false,
+    async (calls) => {
+      const response = await auth.POST(
+        request('/api/auth', {
+          action: 'signup',
+          email: 'collector@example.test',
+          password: 'Safe-test-password-1',
+          displayName: 'Collector',
+        })
+      );
+      assert.equal(response.status, 429);
+      assert.match((await response.json()).error, /Too many attempts/);
+      assert.deepEqual(
+        calls.map((call) => call.path),
+        ['/functions/v1/horion-register']
+      );
+      assert.equal(routeGlobals.__horionRouteCookieJar?.length, 0);
+    },
+    {
+      registrationStatus: 429,
+      registrationPayload: { error: 'Wait before trying again.', code: 'rate_limited' },
+    }
+  );
 });
 
 test('strict input validation rejects role injection, weak signup passwords and malformed JSON', async () => {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getSupabaseConfig, sharedSignupEnabled } from '@/lib/supabase/config';
 import { assertSameOrigin, handleError, json, parseBody } from '@/lib/supabase/http';
+import { loginLiveAccount, RegistrationError, signupLiveAccount } from '@/lib/live/auth';
 
 const email = z.string().email().max(254);
 const sharingNotice =
@@ -45,36 +46,48 @@ export async function POST(request: NextRequest) {
     }
     if (body.action === 'signup') {
       const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).origin;
-      const { data, error } = await supabase.auth.signUp({
-        email: body.email,
-        password: body.password,
-        options: {
-          data: { display_name: body.displayName || 'Horion member' },
-          emailRedirectTo: `${origin}/auth/callback?next=/${body.locale || 'en'}`,
-        },
-      });
-      if (error)
+      try {
+        const result = await signupLiveAccount(
+          supabase,
+          {
+            email: body.email,
+            password: body.password,
+            displayName: body.displayName || 'Horion member',
+            locale: body.locale || 'en',
+          },
+          { enabled: true, origin, forwardOrigin: true }
+        );
+        return json({
+          ok: true,
+          userId: result.userId,
+          emailConfirmationRequired: false,
+          horionMembershipCreated: false,
+          notice: sharingNotice,
+        });
+      } catch (error) {
         return json(
           {
-            error: 'Account registration could not be completed. Check the details and try again.',
+            error:
+              error instanceof RegistrationError && error.code === 'rate_limited'
+                ? 'Too many attempts. Wait before trying again.'
+                : 'Account registration could not be completed. Check the details and try again.',
           },
-          400
+          error instanceof RegistrationError && error.code === 'rate_limited' ? 429 : 400
         );
-      return json({
-        ok: true,
-        userId: data.user?.id,
-        emailConfirmationRequired: !data.session,
-        horionMembershipCreated: false,
-        notice: sharingNotice,
-      });
+      }
     }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: body.email,
-      password: body.password,
-    });
-    return error
-      ? json({ error: 'Invalid email or password.' }, 401)
-      : json({ ok: true, userId: data.user.id, horionMembershipCreated: false });
+    try {
+      const origin = new URL(process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).origin;
+      const result = await loginLiveAccount(supabase, body.email, body.password, {
+        origin,
+        forwardOrigin: true,
+      });
+      return json({ ok: true, userId: result.userId, horionMembershipCreated: false });
+    } catch (error) {
+      return error instanceof RegistrationError && error.code === 'rate_limited'
+        ? json({ error: 'Too many attempts. Wait before trying again.' }, 429)
+        : json({ error: 'Invalid email or password.' }, 401);
+    }
   } catch (error) {
     return handleError(error);
   }

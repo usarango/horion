@@ -1,79 +1,46 @@
 {
-  "publishedAt": "2026-11-07T01:20:36.293140+00:00",
+  "publishedAt": "2026-11-07T03:38:52.875539+00:00",
   "url": "https://horion-watch-club-preview.victortb12.chatgpt.site",
   "project_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb",
-  "version_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb~appgver_08fb409dbfc88191894b2a3b168a44d7",
-  "version_number": 1,
-  "deployment_id": "appgdep_6aee7cd60bc08191a2ae2d73bafdd064",
+  "version_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb~appgver_a137862511d88191941ab6ac2e4f898a",
+  "version_number": 2,
+  "deployment_id": "appgdep_6aee9d404d34819182fdca38d3286466",
   "status": "succeeded",
   "audience": "public",
-  "source_commit": "62afb0956a2f0b13a5d3be5bce19fbbfd554b93c",
-  "canonical_code_commit": "7dd7512",
-  "mode": "static-interactive-demonstration",
-  "backendIncluded": false,
+  "source_commit": "4f3fac08606f4975084909c639da3232074f61c4",
+  "canonical_code_commit": "5fe5f43",
+  "mode": "live-supabase",
+  "backendConfigured": true,
+  "productStorage": "Supabase/PostgreSQL",
+  "databaseSchema": "horion",
+  "signupEnabled": true,
+  "privilegedCredentialsIncluded": false,
   "environmentFilesIncluded": false,
-  "testsPassed": 69,
-  "browserVisualQa": "not performed: managed browser helper unavailable",
-  "httpChecks": [
-    {
-      "path": "/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/en/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/pt-BR/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/pt-BR/collection/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/en/passport/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/pt-BR/settings/",
-      "status": 200,
-      "content_type": "text/html"
-    },
-    {
-      "path": "/icon.svg",
-      "status": 200,
-      "bytes": 367,
-      "content_type": "image/svg+xml"
-    },
-    {
-      "path": "/assets/horion-NPULPG6S.css",
-      "status": 200,
-      "bytes": 70784,
-      "content_type": "text/css"
-    },
-    {
-      "path": "/assets/horion-AZ5T5EMT.js",
-      "status": 200,
-      "bytes": 410680,
-      "content_type": "text/javascript"
-    },
-    {
-      "path": "/images/hero-watch.jpg",
-      "status": 200,
-      "bytes": 224685,
-      "content_type": "image/jpeg"
-    },
-    {
-      "path": "/fonts/instrument-serif-latin.woff2",
-      "status": 200,
-      "bytes": 21032,
-      "content_type": "application/octet-stream"
+  "serverApiIncluded": false,
+  "testsPassed": 116,
+  "sqlTestsPassed": 50,
+  "browserQa": {
+    "realPublicReadOnlyLocalScenarios": 26,
+    "mockedStoreOnboardingScenarios": 4,
+    "realSignupOrEmailsTested": false,
+    "publishedSite": {
+      "scenarios": 2,
+      "languages": ["en", "pt-BR"],
+      "viewports": [1440, 390],
+      "errors": 0,
+      "realSupabaseReadOnly": true,
+      "retiredDemoImages404": 5
     }
+  },
+  "supabaseMigrations": [
+    "20261107032737_horion_live_community",
+    "20261107033322_horion_deferred_admin_roles"
+  ],
+  "protectedRangoFingerprint": "4577a6a52b5e12c77a187d75b01282b0",
+  "initialAdmin": "Queued privately for the explicitly designated verified identity; activates on real Horion onboarding. No profile created automatically.",
+  "limitations": [
+    "Shared Auth redirect allowlist still points to Rango; confirmation can be completed inside Horion by pasting the received link.",
+    "SMTP delivery and authenticated production flows have not been end-to-end verified.",
+    "Passport document upload UI, public collection sharing, subscriptions and marketplace remain unavailable."
   ]
 }

@@ -4,7 +4,7 @@ Aplicação **Next.js 16, React, TypeScript e Tailwind CSS**, com identidade edi
 
 **A interface atual está conectada ao banco e começa sem conteúdo semeado.** Não carrega perfis, comunidades, fotografias de catálogo ou publicações fictícias; não usa registros locais como alternativa ao backend. Acesso de conta, cadastro e adesão ao perfil Horion usam o Supabase real. A rodada de navegador verificou os fluxos públicos e a apresentação dos formulários, sem criar contas ou enviar e-mails. A homologação autenticada completa do MVP continua pendente.
 
-O build Next.js e o artefato estático conectado passaram. A publicação anterior foi a versão pública 1 de avaliação; ela não descreve a implementação live atual. O resultado de uma nova publicação será registrado separadamente após confirmação do serviço. Estado, evidências e limites desta iteração: [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
+A **versão pública 2, conectada ao Supabase**, foi publicada com sucesso em [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). O build Next.js e o artefato estático conectado passaram. Estado, evidências e limites desta iteração: [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
 
 ## Executar
 

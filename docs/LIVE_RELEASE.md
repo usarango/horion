@@ -1,6 +1,6 @@
 # Horion: base conectada e verificação em navegador
 
-Estado observado em 7 de novembro de 2026. Este registro cobre o build local conectado ao Supabase e o QA anônimo; não afirma publicação de uma nova versão nem homologação de todos os fluxos autenticados.
+Estado observado em 7 de novembro de 2026. A **versão pública 2** foi publicada pelo Sites às 03:38 UTC, com estado `succeeded`, em [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). Este registro descreve a implementação conectada e distingue os testes públicos, simulados e as pendências de homologação autenticada. A proveniência está em [PUBLICATION.json](PUBLICATION.json).
 
 Validação final: **116/116 testes automatizados passaram**, incluindo os **50 testes SQL** e os nove casos de concessão administrativa diferida. TypeScript, build Next.js de produção e build estático conectado também passaram. Os resultados de navegador abaixo são registrados separadamente, com distinção entre Supabase real e rede simulada.
 
@@ -60,3 +60,13 @@ A ausência de overflow e a inspeção de capturas cobrem as larguras verificada
 ## Verificação remota após as migrações
 
 O fingerprint protegido do Rango permaneceu `4577a6a52b5e12c77a187d75b01282b0`. A API respondeu 200 para os campos públicos novos do Horion e para a leitura limitada do Rango; negou leitura anônima de documentos e execução das duas RPCs administrativas com 401/42501, e manteve `horion_private` fora da API com 406/PGRST106. O advisor de segurança não encontrou avisos WARN/ERROR do Horion; cinco INFO registram tabelas com acesso direto intencionalmente negado.
+
+## Conferência da versão publicada
+
+Após o deploy confirmado, dois novos contextos de navegador acessaram o site público sem cookies, cache ou token de acesso especial: inglês em desktop 1440 px e português em mobile 390 px. Ambos receberam HTTP 200, carregaram o manifesto `live-supabase` com cadastro habilitado, consultaram as tabelas públicas reais e abriram os formulários de login, cadastro e confirmação. Não houve overflow, erros de console, exceções, requisições falhas ou violações de CSP. Nenhum formulário foi enviado.
+
+O JavaScript servido foi `horion-BORZU7CV.js`, com `horion-DEA3PXVQ.css`, correspondendo ao artefato salvo. As cinco fotografias da demonstração anterior retornaram 404. Evidências locais em `/tmp/horion-browser-qa/hosted-results/`, com capturas inspecionadas visualmente. Essa conferência confirma a versão pública e seu acesso de leitura ao Supabase; mantém os limites de homologação autenticada descritos acima.
+
+## Próxima etapa
+
+Realizar o primeiro acesso do proprietário e a adesão ao perfil, validar uma publicação real e uma segunda conta/loja, e homologar entrega de e-mail. A allowlist compartilhada de redirecionamento ainda precisa incluir as URLs Horion, preservando as do Rango, para permitir a confirmação convencional por clique; a versão atual oferece a confirmação dentro do Horion por link colado. O gerenciamento da allowlist exige acesso de configuração Auth que não está disponível no conector desta sessão.

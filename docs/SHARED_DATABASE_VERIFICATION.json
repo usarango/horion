@@ -1,5 +1,5 @@
 {
-  "verifiedAt": "2026-11-07T00:46:09.344Z",
+  "verifiedAt": "2026-11-07T00:52:18.773Z",
   "foundationVersion": "20261107003648",
   "foundationSha256": "fc6a4ef6c18131e61c5f2f1e15f6f8968caf251e1bce83d65df521d15aeca91a",
   "protectedMetadataUnchanged": true,
@@ -41,20 +41,22 @@
     "anonymous_can_onboard": false
   },
   "apiExposure": {
-    "state": "blocked_by_automatic_approval_review",
-    "remoteExecution": false,
-    "schemasStillExposed": ["public", "graphql_public"],
-    "requestedSchema": "horion",
-    "rejectedMethod": "persistent ALTER ROLE authenticator pgrst.db_schemas override",
-    "reason": "Overrides Dashboard schema control without explicit approval for the exact setting and blast radius",
-    "preferredAlternative": "Add horion through the Dashboard Exposed schemas setting while preserving all existing schemas"
+    "state": "active",
+    "version": "20261107004936",
+    "remoteExecution": true,
+    "exposedSchemas": ["public", "graphql_public", "horion"],
+    "privateSchemaExposed": false,
+    "explicitOwnerAuthorization": true,
+    "configurationMethod": "PostgREST authenticator role SQL override",
+    "dashboardControl": "SQL override takes precedence; future Dashboard changes require an intentional handover/reset preserving all schemas",
+    "initialReview": "Initial automatic rejection was resolved by the owner's explicit approval of the exact setting and control change"
   },
   "scopeLimits": [
     "No production site deployed",
     "No new Supabase project or compute instance",
     "No new Auth identities or automatic member import",
     "Product feed and collection UI still use local demonstration data",
-    "Real account onboarding and private Storage HTTP flows remain pending API exposure and live session tests"
+    "Real account onboarding and private Storage authenticated HTTP flows still require live-session tests"
   ],
   "appliedMigrations": [
     {
@@ -64,6 +66,10 @@
     {
       "version": "20261107004514",
       "name": "horion_shared_performance"
+    },
+    {
+      "version": "20261107004936",
+      "name": "horion_shared_api_exposure"
     }
   ],
   "performanceMigrationSha256": "99bec5ae969aaa85d0a3f5322640613f2b9277ad5ff1e5e634a453530306eea7",
@@ -91,5 +97,51 @@
         "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
       }
     ]
-  }
+  },
+  "liveHttpChecks": [
+    {
+      "check": "rango_default",
+      "status": 200
+    },
+    {
+      "check": "horion_public",
+      "status": 200
+    },
+    {
+      "check": "horion_community",
+      "status": 200
+    },
+    {
+      "check": "private_schema",
+      "status": 406,
+      "code": "PGRST106"
+    },
+    {
+      "check": "private_documents",
+      "status": 401,
+      "code": "42501"
+    },
+    {
+      "check": "anonymous_onboarding",
+      "status": 401,
+      "code": "42501"
+    }
+  ],
+  "publicContentQueryChecks": [
+    {
+      "table": "posts",
+      "status": 200,
+      "row_count": 0
+    },
+    {
+      "table": "watch_references",
+      "status": 200,
+      "row_count": 0
+    },
+    {
+      "table": "communities",
+      "status": 200,
+      "row_count": 0
+    }
+  ]
 }

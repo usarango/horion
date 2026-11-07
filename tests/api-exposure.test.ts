@@ -9,7 +9,10 @@ async function setup() {
     'create role authenticator; create schema horion; create schema horion_private; create table horion.profiles(id uuid);'
   );
   const sql = await readFile(
-    new URL('../docs/operations/proposed_api_role_override.sql.txt', import.meta.url),
+    new URL(
+      '../supabase/operations/20261107004936_horion_shared_api_exposure.sql',
+      import.meta.url
+    ),
     'utf8'
   );
   return { db, sql };
@@ -22,7 +25,7 @@ async function configured(db: PGlite) {
   return result.rows[0].rolconfig;
 }
 
-test('proposed shared Data API exposure appends Horion and keeps public as the default', async () => {
+test('shared Data API exposure appends Horion and keeps public as the default', async () => {
   const { db, sql } = await setup();
   try {
     await db.exec(sql);
@@ -34,7 +37,7 @@ test('proposed shared Data API exposure appends Horion and keeps public as the d
   }
 });
 
-test('proposed shared Data API exposure preserves every existing role-configured schema and other settings', async () => {
+test('shared Data API exposure preserves every existing role-configured schema and other settings', async () => {
   const { db, sql } = await setup();
   try {
     await db.exec(
@@ -49,7 +52,7 @@ test('proposed shared Data API exposure preserves every existing role-configured
   }
 });
 
-test('proposed shared Data API exposure refuses a database-scoped override without changing it', async () => {
+test('shared Data API exposure refuses a database-scoped override without changing it', async () => {
   const { db, sql } = await setup();
   try {
     const result = await db.query<{ name: string }>('select current_database() as name');

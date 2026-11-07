@@ -1,3 +1,6 @@
+-- Historical review artifact. Initially rejected; the owner later explicitly
+-- approved the exact operation, applied as version 20261107004936. Current
+-- operational source: supabase/operations/20261107004936_horion_shared_api_exposure.sql
 -- PROPOSAL ONLY: automatic approval review rejected the remote execution.
 -- Not an executable project migration. Requires explicit authorization.
 -- Prefer adding horion via the Dashboard Exposed schemas setting instead.

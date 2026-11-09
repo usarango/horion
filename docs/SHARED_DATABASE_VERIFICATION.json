@@ -1,0 +1,147 @@
+{
+  "verifiedAt": "2026-11-07T00:52:18.773Z",
+  "foundationVersion": "20261107003648",
+  "foundationSha256": "fc6a4ef6c18131e61c5f2f1e15f6f8968caf251e1bce83d65df521d15aeca91a",
+  "protectedMetadataUnchanged": true,
+  "fingerprintBefore": "4577a6a52b5e12c77a187d75b01282b0",
+  "fingerprintAfter": "4577a6a52b5e12c77a187d75b01282b0",
+  "protectedComponents": {
+    "public_columns": "6469942532b264eb87fcbb70653418d4",
+    "public_indexes": "d8e7c0385e6e56d9f6d05f2adc45bf0c",
+    "auth_user_hooks": "7611233c87eb1ffc37f4b4cc1880a3b5",
+    "public_policies": "130ae484bbb4a3cd11ee40c1efedaa26",
+    "existing_buckets": "f9a9eff91fd770dfce523977bed64b79",
+    "public_functions": "c492c4f7ef3f02aee4ce295e34a166a0",
+    "public_relations": "bce7acd53eb266e30c23e6d18d9df2bf",
+    "public_constraints": "e0d0a0eb7f53fa9ba17aa97011bd886d",
+    "existing_storage_policies": "cdf5092380e9871a260c413fad7a9abf",
+    "existing_default_privileges": "8bd28a51950e4e1488798eb566601f6c"
+  },
+  "namespaces": ["horion", "horion_private"],
+  "buckets": ["horion-passport-documents", "horion-post-media"],
+  "newStoragePolicies": [
+    "horion_storage_delete",
+    "horion_storage_delete_guard",
+    "horion_storage_insert",
+    "horion_storage_insert_guard",
+    "horion_storage_read",
+    "horion_storage_read_guard",
+    "horion_storage_update_guard",
+    "horion_storage_visitor_delete_guard",
+    "horion_storage_visitor_insert_guard",
+    "horion_storage_visitor_read",
+    "horion_storage_visitor_read_guard",
+    "horion_storage_visitor_update_guard"
+  ],
+  "liveAnonymousSqlCheck": {
+    "anonymous_public_communities_readable": true,
+    "anonymous_profile_count": 0,
+    "anonymous_has_documents_table_select": false,
+    "anonymous_has_roles_table_select": false,
+    "anonymous_can_onboard": false
+  },
+  "apiExposure": {
+    "state": "active",
+    "version": "20261107004936",
+    "remoteExecution": true,
+    "exposedSchemas": ["public", "graphql_public", "horion"],
+    "privateSchemaExposed": false,
+    "explicitOwnerAuthorization": true,
+    "configurationMethod": "PostgREST authenticator role SQL override",
+    "dashboardControl": "SQL override takes precedence; future Dashboard changes require an intentional handover/reset preserving all schemas",
+    "initialReview": "Initial automatic rejection was resolved by the owner's explicit approval of the exact setting and control change"
+  },
+  "scopeLimits": [
+    "No production site deployed",
+    "No new Supabase project or compute instance",
+    "No new Auth identities or automatic member import",
+    "Product feed and collection UI still use local demonstration data",
+    "Real account onboarding and private Storage authenticated HTTP flows still require live-session tests"
+  ],
+  "appliedMigrations": [
+    {
+      "version": "20261107003648",
+      "name": "horion_shared_foundation"
+    },
+    {
+      "version": "20261107004514",
+      "name": "horion_shared_performance"
+    },
+    {
+      "version": "20261107004936",
+      "name": "horion_shared_api_exposure"
+    }
+  ],
+  "performanceMigrationSha256": "99bec5ae969aaa85d0a3f5322640613f2b9277ad5ff1e5e634a453530306eea7",
+  "finalProtectedFingerprint": "4577a6a52b5e12c77a187d75b01282b0",
+  "localChecks": {
+    "tests": {
+      "passed": 65,
+      "failed": 0,
+      "skipped": 0
+    },
+    "typecheck": "passed",
+    "productionBuild": "passed with .env.local"
+  },
+  "advisors": {
+    "security": {
+      "horionWarnings": 0,
+      "horionErrors": 0,
+      "intentionalDenyWithoutPolicyInfo": 4
+    },
+    "performance": [
+      {
+        "name": "unused_index",
+        "level": "INFO",
+        "count": 51,
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+      }
+    ]
+  },
+  "liveHttpChecks": [
+    {
+      "check": "rango_default",
+      "status": 200
+    },
+    {
+      "check": "horion_public",
+      "status": 200
+    },
+    {
+      "check": "horion_community",
+      "status": 200
+    },
+    {
+      "check": "private_schema",
+      "status": 406,
+      "code": "PGRST106"
+    },
+    {
+      "check": "private_documents",
+      "status": 401,
+      "code": "42501"
+    },
+    {
+      "check": "anonymous_onboarding",
+      "status": 401,
+      "code": "42501"
+    }
+  ],
+  "publicContentQueryChecks": [
+    {
+      "table": "posts",
+      "status": 200,
+      "row_count": 0
+    },
+    {
+      "table": "watch_references",
+      "status": 200,
+      "row_count": 0
+    },
+    {
+      "table": "communities",
+      "status": 200,
+      "row_count": 0
+    }
+  ]
+}

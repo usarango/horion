@@ -1,0 +1,67 @@
+{
+  "publishedAt": "2026-11-09T00:11:33.022661+00:00",
+  "url": "https://horion-watch-club-preview.victortb12.chatgpt.site",
+  "project_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb",
+  "version_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb~appgver_697f9b30f3448191b92c88c9927b0e17",
+  "version_number": 5,
+  "deployment_id": "appgdep_6af10fa82aa081918069f7107e97bf7f",
+  "status": "succeeded",
+  "audience": "public",
+  "source_commit": "60100dd8d7a531eaee18fa1632e12b6af0e72e1c",
+  "canonical_code_commit": "87af0b6",
+  "mode": "live-supabase",
+  "backendConfigured": true,
+  "productStorage": "Supabase/PostgreSQL",
+  "databaseSchema": "horion",
+  "signupEnabled": true,
+  "emailConfirmationRequiredInHorion": false,
+  "registrationBackend": {
+    "function": "horion-register",
+    "version": 2,
+    "verify_jwt": false,
+    "serverControlled": true,
+    "privilegedKeysInBrowser": false
+  },
+  "sharedAuthGlobalMailerAutoconfirm": false,
+  "privilegedCredentialsIncluded": false,
+  "environmentFilesIncluded": false,
+  "serverApiIncluded": false,
+  "testsPassed": 155,
+  "sqlTestsPassed": 61,
+  "browserQa": {
+    "currentMockedDirectSignupScenarios": 4,
+    "syntheticRefreshTokenLength": 12,
+    "realRegistrationBackendCreatedConfirmedIdentity": true,
+    "realHorionProfileCreated": false,
+    "currentCompleteRealSignupAndPendingRecoveryRetest": "awaiting explicit QA fixture mutation/cleanup authorization",
+    "previousVersion2PublicReadOnlyScenarios": 28,
+    "currentMockedSignupErrorScenarios": 4,
+    "signupErrorChecks": [
+      "Existing shared credentials message",
+      "Email preserved when switching to sign in",
+      "Password cleared and focused",
+      "Separate service, rate and network feedback"
+    ],
+    "signupErrorRealBackendCalls": 0
+  },
+  "supabaseMigrations": [
+    "20261107032737_horion_live_community",
+    "20261107033322_horion_deferred_admin_roles",
+    "20261107044651_horion_registration_gateway"
+  ],
+  "protectedRangoFingerprint": "4577a6a52b5e12c77a187d75b01282b0",
+  "qaCleanup": {
+    "status": "awaiting_user_approval",
+    "reason": "Automatic review rejected deletion of a temporary Auth test identity because it can cascade to its shared Rango customer record. No workaround attempted.",
+    "scope": "Only controlled temporary QA identities; no real accounts or Horion content."
+  },
+  "limitations": [
+    "The complete real browser signup and pending-account recovery retest awaits permission to mutate and delete temporary QA identities.",
+    "Passport document upload UI, public collection sharing, subscriptions and marketplace remain unavailable."
+  ],
+  "currentChange": {
+    "scope": "UI, Auth error mapping and server response classification; no schema or real account mutations.",
+    "diagnosis": "An existing confirmed shared identity was submitted to signup; provider logs reported email_exists followed by invalid_credentials.",
+    "customerIdentifiersPublished": false
+  }
+}

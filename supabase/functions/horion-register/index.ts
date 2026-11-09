@@ -65,7 +65,7 @@ const backend: RegistrationBackend = {
     const client = createClient(url, publicKey, options);
     const { data, error } = await client.auth.signInWithPassword({ email, password });
     return {
-      errorCode: error?.code || (error ? 'invalid_credentials' : null),
+      errorCode: error?.code || (error ? 'auth_service_unavailable' : null),
       tokens: data.session
         ? {
             access_token: data.session.access_token,

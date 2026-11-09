@@ -178,13 +178,7 @@ test('duplicate confirmed accounts sign in with the submitted password without c
 });
 
 test('wrong credentials, blocked identities and unrelated Auth errors never resolve or confirm an account', async () => {
-  for (const errorCode of [
-    'invalid_credentials',
-    'user_banned',
-    'phone_not_confirmed',
-    'over_request_rate_limit',
-    'unexpected_failure',
-  ]) {
+  for (const errorCode of ['invalid_credentials', 'user_banned', 'phone_not_confirmed']) {
     const { handle, calls } = fixture({
       creation: { ok: false, errorCode: 'email_exists' },
       logins: [{ errorCode }],
@@ -197,6 +191,38 @@ test('wrong credentials, blocked identities and unrelated Auth errors never reso
     assert.deepEqual(
       calls.map((call) => call.name),
       ['limit', 'create', 'login']
+    );
+  }
+});
+
+test('provider throttling and outages remain distinct from incorrect credentials without confirming users', async () => {
+  for (const [errorCode, status, publicCode] of [
+    ['over_request_rate_limit', 429, 'rate_limited'],
+    ['unexpected_failure', 503, 'unavailable'],
+    ['auth_service_unavailable', 503, 'unavailable'],
+  ] as const) {
+    const { handle, calls } = fixture({
+      creation: { ok: false, errorCode: 'email_exists' },
+      logins: [{ errorCode }],
+    });
+    const response = await handle(request());
+    assert.equal(response.status, status);
+    assert.equal((await response.json()).code, publicCode);
+    assert.deepEqual(
+      calls.map((call) => call.name),
+      ['limit', 'create', 'login']
+    );
+  }
+  for (const [errorCode, status] of [
+    ['over_request_rate_limit', 429],
+    ['unexpected_failure', 503],
+    ['weak_password', 400],
+  ] as const) {
+    const { handle, calls } = fixture({ creation: { ok: false, errorCode } });
+    assert.equal((await handle(request())).status, status);
+    assert.deepEqual(
+      calls.map((call) => call.name),
+      ['limit', 'create']
     );
   }
 });

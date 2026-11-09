@@ -173,6 +173,29 @@ export function createRegistrationHandler(dependencies: RegistrationDependencies
         'invalid_credentials',
         'Unable to complete access. Check your details or sign in to your existing account.'
       );
+    const unavailable = () =>
+      error(503, 'unavailable', 'Account access is temporarily unavailable. Please try again.');
+    const authFailure = (code?: string | null) => {
+      if (
+        [
+          'over_request_rate_limit',
+          'over_email_send_rate_limit',
+          'over_sms_send_rate_limit',
+          'over_request_limit',
+          'rate_limit_exceeded',
+        ].includes(code || '')
+      )
+        return error(429, 'rate_limited', 'Please wait before trying again.', true);
+      if (['weak_password', 'email_address_invalid', 'validation_failed'].includes(code || ''))
+        return error(400, 'invalid_request', 'Review your account details.');
+      if (
+        ['invalid_credentials', 'user_banned', 'phone_not_confirmed', 'user_not_found'].includes(
+          code || ''
+        )
+      )
+        return invalidCredentials();
+      return unavailable();
+    };
     // An allowed Origin helps browser isolation; it is never authentication.
     if (!origins.has(origin)) return error(403, 'forbidden_origin', 'This request is not allowed.');
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
@@ -201,7 +224,7 @@ export function createRegistrationHandler(dependencies: RegistrationDependencies
           user_metadata: { display_name: input.displayName },
         });
         if (!creation.ok && !duplicateCodes.has(creation.errorCode || ''))
-          return invalidCredentials();
+          return authFailure(creation.errorCode);
       }
       let login = await backend.signIn(input.email, input.password);
       let tokens = sessionTokens(login);
@@ -209,13 +232,13 @@ export function createRegistrationHandler(dependencies: RegistrationDependencies
 
       // GoTrue v2.197.0 emits this code only AFTER checking the password.
       // Wrong credentials, banned users or any other failure never reach admin confirmation.
-      if (login.errorCode !== 'email_not_confirmed') return invalidCredentials();
+      if (login.errorCode !== 'email_not_confirmed') return authFailure(login.errorCode);
       const pendingUserId = await backend.resolvePendingUser(input.email);
       if (!pendingUserId || !UUID.test(pendingUserId)) return invalidCredentials();
-      if (!(await backend.confirmUser(pendingUserId))) return invalidCredentials();
+      if (!(await backend.confirmUser(pendingUserId))) return unavailable();
       login = await backend.signIn(input.email, input.password);
       tokens = sessionTokens(login);
-      if (!tokens) return invalidCredentials();
+      if (!tokens) return authFailure(login.errorCode);
       return new Response(JSON.stringify(tokens), { status: 200, headers });
     } catch {
       // Never echo SDK exceptions, user details, tokens or privileged credentials.

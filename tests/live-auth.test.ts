@@ -19,10 +19,18 @@ function authClient(
     session?: object | null;
     fail?: boolean;
     loginError?: string;
+    loginErrorName?: string;
+    loginStatus?: number;
+    loginThrows?: Error;
     registrationResponse?: unknown;
     registrationStatus?: number;
+    registrationCode?: unknown;
+    registrationErrorName?: string;
+    registrationThrows?: Error;
     sessionError?: boolean;
+    sessionThrows?: Error;
     userError?: boolean;
+    userThrows?: Error;
     verifiedUserId?: string;
   } = {}
 ) {
@@ -35,32 +43,56 @@ function authClient(
     functions: {
       async invoke(name: string, input: unknown) {
         calls.push({ method: `function:${name}`, input });
+        if (options.registrationThrows) throw options.registrationThrows;
         return {
           data:
             options.registrationResponse === undefined
               ? tokenResponse
               : options.registrationResponse,
           error: options.registrationStatus
-            ? { context: new Response(null, { status: options.registrationStatus }) }
-            : null,
+            ? {
+                context: new Response(
+                  JSON.stringify({
+                    code: options.registrationCode,
+                    error: 'PRIVATE PROVIDER DETAILS',
+                  }),
+                  {
+                    status: options.registrationStatus,
+                  }
+                ),
+              }
+            : options.registrationErrorName
+              ? { name: options.registrationErrorName, message: 'PRIVATE PROVIDER DETAILS' }
+              : null,
         };
       },
     },
     auth: {
       async signInWithPassword(input: unknown) {
         calls.push({ method: 'login', input });
-        return options.loginError
-          ? { data: { session: null }, error: { code: options.loginError } }
+        if (options.loginThrows) throw options.loginThrows;
+        return options.loginError || options.loginErrorName || options.loginStatus
+          ? {
+              data: { session: null },
+              error: {
+                code: options.loginError,
+                name: options.loginErrorName,
+                status: options.loginStatus,
+                message: 'PRIVATE PROVIDER DETAILS',
+              },
+            }
           : result;
       },
       async setSession(input: unknown) {
         calls.push({ method: 'setSession', input });
+        if (options.sessionThrows) throw options.sessionThrows;
         return options.sessionError
           ? { data: { session: null }, error: { message: 'private details' } }
           : result;
       },
       async getUser() {
         calls.push({ method: 'getUser', input: null });
+        if (options.userThrows) throw options.userThrows;
         return {
           data: { user: options.userError ? null : { id: options.verifiedUserId || user.id } },
           error: options.userError ? { message: 'private verification details' } : null,
@@ -179,6 +211,71 @@ test('registration throttling is a distinct safe error and never establishes a s
   assert.equal(calls.length, 1);
 });
 
+test('registration separates credential, form, gateway and unavailable-service failures without exposing provider messages', async () => {
+  const cases = [
+    [401, 'invalid_credentials', 'invalid_credentials'],
+    [401, undefined, 'service_unavailable'],
+    [401, 'unexpected_gateway_code', 'service_unavailable'],
+    [400, 'invalid_request', 'invalid_input'],
+    [400, 'invalid_input', 'invalid_input'],
+    [400, 'unexpected_gateway_code', 'registration_failed'],
+    [403, 'forbidden_origin', 'service_unavailable'],
+    [429, 'invalid_credentials', 'rate_limited'],
+    [500, 'invalid_credentials', 'service_unavailable'],
+    [503, 'unavailable', 'service_unavailable'],
+  ] as const;
+  for (const [registrationStatus, registrationCode, expected] of cases) {
+    const { client, calls } = authClient({ registrationStatus, registrationCode });
+    await assert.rejects(
+      signupLiveAccount(client, registration, signupOptions),
+      (error) =>
+        error instanceof RegistrationError &&
+        error.code === expected &&
+        !error.message.includes('PRIVATE PROVIDER DETAILS')
+    );
+    assert.deepEqual(
+      calls.map((call) => call.method),
+      ['function:horion-register']
+    );
+  }
+});
+
+test('function fetch, relay and thrown network errors do not blame the account credentials', async () => {
+  for (const [registrationErrorName, expected] of [
+    ['FunctionsFetchError', 'network_failed'],
+    ['FunctionsRelayError', 'service_unavailable'],
+  ] as const) {
+    const { client } = authClient({ registrationErrorName });
+    await assert.rejects(
+      signupLiveAccount(client, registration, signupOptions),
+      (error) =>
+        error instanceof RegistrationError &&
+        error.code === expected &&
+        !error.message.includes('PRIVATE')
+    );
+  }
+  const { client } = authClient({ registrationThrows: new TypeError('PRIVATE FETCH DETAILS') });
+  await assert.rejects(
+    signupLiveAccount(client, registration, signupOptions),
+    (error) =>
+      error instanceof RegistrationError &&
+      error.code === 'network_failed' &&
+      !error.message.includes('PRIVATE')
+  );
+});
+
+test('invalid form input is reported before any Auth or registration call', async () => {
+  const { client, calls } = authClient();
+  const invalid = (error: unknown) =>
+    error instanceof RegistrationError && error.code === 'invalid_input';
+  await assert.rejects(
+    signupLiveAccount(client, { ...registration, email: 'invalid' }, signupOptions),
+    invalid
+  );
+  await assert.rejects(loginLiveAccount(client, 'invalid', 'password'), invalid);
+  assert.deepEqual(calls, []);
+});
+
 test('existing-account login accepts short legacy passwords but requires a returned session', async () => {
   const valid = authClient();
   assert.deepEqual(await loginLiveAccount(valid.client, 'collector@example.test', 'legacy'), {
@@ -188,8 +285,57 @@ test('existing-account login accepts short legacy passwords but requires a retur
   const invalid = authClient({ session: null });
   await assert.rejects(
     loginLiveAccount(invalid.client, 'collector@example.test', 'legacy'),
-    /Unable to sign in/
+    (error) => error instanceof RegistrationError && error.code === 'session_failed'
   );
+});
+
+test('normal sign-in reports credentials, rate limits and upstream/network errors separately', async () => {
+  const cases = [
+    [{ loginError: 'invalid_credentials', loginStatus: 400 }, 'invalid_credentials'],
+    [{ loginError: 'over_request_rate_limit', loginStatus: 429 }, 'rate_limited'],
+    [{ loginError: 'unexpected_failure', loginStatus: 500 }, 'service_unavailable'],
+    [{ loginErrorName: 'AuthRetryableFetchError', loginStatus: 503 }, 'service_unavailable'],
+    [{ loginErrorName: 'AuthRetryableFetchError' }, 'network_failed'],
+    [{ loginThrows: new TypeError('PRIVATE FETCH DETAILS') }, 'network_failed'],
+  ] as const;
+  for (const [options, expected] of cases) {
+    const { client, calls } = authClient(options);
+    await assert.rejects(
+      loginLiveAccount(client, 'collector@example.test', 'legacy'),
+      (error) =>
+        error instanceof RegistrationError &&
+        error.code === expected &&
+        !error.message.includes('PRIVATE')
+    );
+    assert.deepEqual(
+      calls.map((call) => call.method),
+      ['login']
+    );
+  }
+});
+
+test('network failures during session establishment remain distinct and verification failures revoke only Horion', async () => {
+  const initial = authClient({ sessionThrows: new TypeError('PRIVATE SESSION DETAILS') });
+  await assert.rejects(
+    signupLiveAccount(initial.client, registration, signupOptions),
+    (error) =>
+      error instanceof RegistrationError &&
+      error.code === 'network_failed' &&
+      !error.message.includes('PRIVATE')
+  );
+  assert.deepEqual(
+    initial.calls.map((call) => call.method),
+    ['function:horion-register', 'setSession']
+  );
+  const verification = authClient({ userThrows: new TypeError('PRIVATE VERIFICATION DETAILS') });
+  await assert.rejects(
+    signupLiveAccount(verification.client, registration, signupOptions),
+    (error) =>
+      error instanceof RegistrationError &&
+      error.code === 'network_failed' &&
+      !error.message.includes('PRIVATE')
+  );
+  assert.deepEqual(verification.calls.at(-1), { method: 'logout', input: { scope: 'local' } });
 });
 
 test('only an email-not-confirmed login invokes the password-verifying repair backend', async () => {

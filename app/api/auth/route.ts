@@ -8,6 +8,25 @@ import { loginLiveAccount, RegistrationError, signupLiveAccount } from '@/lib/li
 const email = z.string().email().max(254);
 const sharingNotice =
   'Horion shares Supabase authentication with Rango. Signing in does not enroll you in Horion. Create your Horion member or store profile explicitly to participate.';
+function accessFailure(cause: unknown, signingUp: boolean) {
+  const code = cause instanceof RegistrationError ? cause.code : 'registration_failed';
+  const failures: Record<string, { status: number; message: string }> = {
+    rate_limited: { status: 429, message: 'Too many attempts. Wait before trying again.' },
+    invalid_credentials: {
+      status: 401,
+      message: signingUp
+        ? 'Unable to complete signup. If you already use Rango or Horion, sign in with that account password.'
+        : 'Email or password is incorrect. Use the password of your existing Rango or Horion account.',
+    },
+    invalid_input: { status: 400, message: 'Review your account details.' },
+    network_failed: { status: 503, message: 'The connection failed. Please try again.' },
+    service_unavailable: { status: 503, message: 'Account access is temporarily unavailable.' },
+    session_failed: { status: 502, message: 'Unable to open this session. Please sign in again.' },
+    registration_failed: { status: 502, message: 'Account access could not be completed.' },
+  };
+  const failure = failures[code] || failures.registration_failed;
+  return json({ error: failure.message, code }, failure.status);
+}
 const input = z.discriminatedUnion('action', [
   // Existing shared-project credentials retain their existing password requirements.
   z.object({ action: z.literal('login'), email, password: z.string().min(1).max(128) }).strict(),
@@ -65,15 +84,7 @@ export async function POST(request: NextRequest) {
           notice: sharingNotice,
         });
       } catch (error) {
-        return json(
-          {
-            error:
-              error instanceof RegistrationError && error.code === 'rate_limited'
-                ? 'Too many attempts. Wait before trying again.'
-                : 'Account registration could not be completed. Check the details and try again.',
-          },
-          error instanceof RegistrationError && error.code === 'rate_limited' ? 429 : 400
-        );
+        return accessFailure(error, true);
       }
     }
     try {
@@ -84,9 +95,7 @@ export async function POST(request: NextRequest) {
       });
       return json({ ok: true, userId: result.userId, horionMembershipCreated: false });
     } catch (error) {
-      return error instanceof RegistrationError && error.code === 'rate_limited'
-        ? json({ error: 'Too many attempts. Wait before trying again.' }, 429)
-        : json({ error: 'Invalid email or password.' }, 401);
+      return accessFailure(error, false);
     }
   } catch (error) {
     return handleError(error);

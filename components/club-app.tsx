@@ -1179,25 +1179,84 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState<RegistrationError['code'] | null>(null);
   const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const passwordInput = useRef<HTMLInputElement>(null);
+  const focusLoginPassword = useRef(false);
   const [accountType, setAccountType] = useState<'member' | 'store'>('member');
   const text = (en: string, pt: string) => (locale === 'pt-BR' ? pt : en);
+  useEffect(() => {
+    if (mode === 'login' && focusLoginPassword.current) {
+      focusLoginPassword.current = false;
+      passwordInput.current?.focus();
+    }
+  }, [mode]);
+  function changeMode(next: 'login' | 'signup', focusPassword = false) {
+    focusLoginPassword.current = focusPassword;
+    setMode(next);
+    setPassword('');
+    setError('');
+    setErrorCode(null);
+    setMessage('');
+  }
+  function authErrorMessage(code: RegistrationError['code'] | null) {
+    switch (code) {
+      case 'invalid_credentials':
+        return mode === 'signup'
+          ? text(
+              'We could not complete signup with these details. If you already use Rango or Horion, sign in with that account’s password.',
+              'Não foi possível concluir o cadastro com esses dados. Se você já usa o Rango ou o Horion, entre com a senha dessa conta.'
+            )
+          : text(
+              'Email or password is incorrect. Use the password for your Rango or Horion account.',
+              'E-mail ou senha incorretos. Use a senha da sua conta Rango ou Horion.'
+            );
+      case 'invalid_input':
+        return text(
+          'Review the form fields and try again.',
+          'Revise os campos do formulário e tente novamente.'
+        );
+      case 'network_failed':
+        return text(
+          'We could not connect to the sign-in service. Check your connection and try again.',
+          'Não conseguimos conectar ao serviço de acesso. Verifique sua conexão e tente novamente.'
+        );
+      case 'service_unavailable':
+        return text(
+          'The sign-in service is temporarily unavailable. Your fields have been kept; try again later.',
+          'O serviço de acesso está temporariamente indisponível. Seus campos foram mantidos; tente novamente mais tarde.'
+        );
+      case 'session_failed':
+        return text(
+          'We could not establish your session. Try signing in with the same email and password.',
+          'Não foi possível iniciar sua sessão. Tente entrar com o mesmo e-mail e senha.'
+        );
+      case 'rate_limited':
+        return text(
+          'Too many attempts. Wait before trying again.',
+          'Muitas tentativas. Aguarde antes de tentar novamente.'
+        );
+      default:
+        return text(
+          'Account access could not be completed. Please try again.',
+          'Não foi possível concluir o acesso. Tente novamente.'
+        );
+    }
+  }
   const perform = async (action: () => Promise<void>) => {
     if (busy) return;
     setBusy(true);
     setError('');
+    setErrorCode(null);
     setMessage('');
     try {
       await action();
     } catch (cause) {
-      setError(
-        cause instanceof RegistrationError && cause.code === 'rate_limited'
-          ? text(
-              'Too many attempts. Wait before trying again.',
-              'Muitas tentativas. Aguarde antes de tentar novamente.'
-            )
-          : t('auth.failed')
-      );
+      const code = cause instanceof RegistrationError ? cause.code : null;
+      setErrorCode(code);
+      setError(authErrorMessage(code));
     } finally {
       setBusy(false);
     }
@@ -1205,6 +1264,7 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    setEmail(String(data.get('email') || ''));
     void perform(async () => {
       if (mode === 'signup') {
         await club.signup({
@@ -1216,6 +1276,7 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
       } else {
         await club.login(String(data.get('email')), String(data.get('password')));
       }
+      setPassword('');
     });
   };
   const onboard = (event: FormEvent<HTMLFormElement>) => {
@@ -1338,7 +1399,7 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
             onClick={() =>
               void perform(async () => {
                 await club.signout();
-                setMode('login');
+                changeMode('login');
                 setMessage(t('auth.signedOut'));
               })
             }
@@ -1353,21 +1414,16 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
             <button
               type="button"
               aria-pressed={mode === 'login'}
-              onClick={() => {
-                setMode('login');
-                setError('');
-              }}
+              disabled={busy}
+              onClick={() => changeMode('login')}
             >
               {t('auth.signIn')}
             </button>
             <button
               type="button"
               aria-pressed={mode === 'signup'}
-              disabled={!auth.signupEnabled}
-              onClick={() => {
-                setMode('signup');
-                setError('');
-              }}
+              disabled={busy || !auth.signupEnabled}
+              onClick={() => changeMode('signup')}
             >
               {t('auth.signUp')}
             </button>
@@ -1380,13 +1436,26 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
           )}
           <label>
             {t('auth.email')}
-            <input type="email" name="email" autoComplete="email" required maxLength={254} />
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={busy}
+            />
           </label>
           <label>
             {t('auth.password')}
             <input
               type="password"
               name="password"
+              ref={passwordInput}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              disabled={busy}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               minLength={mode === 'signup' ? 12 : 1}
               maxLength={128}
@@ -1398,8 +1467,8 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
           {mode === 'signup' && (
             <p className="form-note">
               {text(
-                'Create your account and choose a member or store profile. No email confirmation is required. Your sign-in identity is shared with Rango; Horion content and permissions are separate.',
-                'Crie sua conta e escolha um perfil de membro ou loja. Não é necessário confirmar o e-mail. Sua identidade de acesso é compartilhada com o Rango; o conteúdo e as permissões do Horion são separados.'
+                'Already use Rango or Horion? Choose Sign in and use that account’s password. With a new email, create your account and then choose a member or store profile, without email confirmation.',
+                'Já usa o Rango ou o Horion? Escolha Entrar e use a senha dessa conta. Com um e-mail novo, crie sua conta e depois escolha o perfil de membro ou loja, sem confirmação por e-mail.'
               )}
             </p>
           )}
@@ -1411,9 +1480,23 @@ function AccountModal({ locale, onClose }: { locale: Locale; onClose: () => void
         </form>
       )}
       {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
+        <>
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+          {auth.status === 'guest' &&
+            mode === 'signup' &&
+            (errorCode === 'invalid_credentials' || errorCode === 'session_failed') && (
+              <button
+                type="button"
+                className="text-link"
+                disabled={busy}
+                onClick={() => changeMode('login', true)}
+              >
+                {text('Sign in with this email', 'Entrar com este e-mail')}
+              </button>
+            )}
+        </>
       )}
       {message && (
         <p className="inline-feedback" role="status">

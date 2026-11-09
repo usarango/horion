@@ -483,7 +483,7 @@ test('server wrong-password login cannot call registration or confirmation repai
   );
 });
 
-test('server signup rejects malformed backend sessions without creating a success or leaking tokens', async () => {
+test('server signup reports malformed backend sessions as gateway failures without leaking tokens', async () => {
   await withBackend(
     false,
     async (calls) => {
@@ -495,7 +495,7 @@ test('server signup rejects malformed backend sessions without creating a succes
           displayName: 'Collector',
         })
       );
-      assert.equal(response.status, 400);
+      assert.equal(response.status, 502);
       assert.equal((await response.json()).ok, undefined);
       assert.deepEqual(
         calls.map((call) => call.path),
@@ -532,6 +532,40 @@ test('server signup preserves throttling feedback without requesting an email or
       registrationPayload: { error: 'Wait before trying again.', code: 'rate_limited' },
     }
   );
+});
+
+test('server signup separates rejected credentials from unavailable services without leaking backend details', async () => {
+  for (const scenario of [
+    { status: 401, backendCode: 'invalid_credentials', code: 'invalid_credentials' },
+    { status: 503, backendCode: 'unavailable', code: 'service_unavailable' },
+  ]) {
+    await withBackend(
+      false,
+      async (calls) => {
+        const response = await auth.POST(
+          request('/api/auth', {
+            action: 'signup',
+            email: 'collector@example.test',
+            password: 'Safe-test-password-1',
+            displayName: 'Collector',
+          })
+        );
+        assert.equal(response.status, scenario.status);
+        const body = await response.json();
+        assert.equal(body.code, scenario.code);
+        assert.ok(!JSON.stringify(body).includes('PRIVATE_BACKEND_DETAILS'));
+        assert.deepEqual(
+          calls.map((call) => call.path),
+          ['/functions/v1/horion-register']
+        );
+        assert.equal(routeGlobals.__horionRouteCookieJar?.length, 0);
+      },
+      {
+        registrationStatus: scenario.status,
+        registrationPayload: { code: scenario.backendCode, error: 'PRIVATE_BACKEND_DETAILS' },
+      }
+    );
+  }
 });
 
 test('strict input validation rejects role injection, weak signup passwords and malformed JSON', async () => {

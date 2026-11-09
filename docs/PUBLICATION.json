@@ -1,14 +1,14 @@
 {
-  "publishedAt": "2026-11-07T05:17:29.984168+00:00",
+  "publishedAt": "2026-11-09T00:11:33.022661+00:00",
   "url": "https://horion-watch-club-preview.victortb12.chatgpt.site",
   "project_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb",
-  "version_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb~appgver_bcaae655a0688191b7e05f99608d96a7",
-  "version_number": 4,
-  "deployment_id": "appgdep_6aeeb45d95a08191a6adb8c6b4e5ae8c",
+  "version_id": "appgprj_6aee7ac648588191b59bc6edc9f687fb~appgver_697f9b30f3448191b92c88c9927b0e17",
+  "version_number": 5,
+  "deployment_id": "appgdep_6af10fa82aa081918069f7107e97bf7f",
   "status": "succeeded",
   "audience": "public",
-  "source_commit": "480f787f81aaca276fcbb06caabfc549b7a50f64",
-  "canonical_code_commit": "79fbc89",
+  "source_commit": "60100dd8d7a531eaee18fa1632e12b6af0e72e1c",
+  "canonical_code_commit": "87af0b6",
   "mode": "live-supabase",
   "backendConfigured": true,
   "productStorage": "Supabase/PostgreSQL",
@@ -17,7 +17,7 @@
   "emailConfirmationRequiredInHorion": false,
   "registrationBackend": {
     "function": "horion-register",
-    "version": 1,
+    "version": 2,
     "verify_jwt": false,
     "serverControlled": true,
     "privilegedKeysInBrowser": false
@@ -26,7 +26,7 @@
   "privilegedCredentialsIncluded": false,
   "environmentFilesIncluded": false,
   "serverApiIncluded": false,
-  "testsPassed": 148,
+  "testsPassed": 155,
   "sqlTestsPassed": 61,
   "browserQa": {
     "currentMockedDirectSignupScenarios": 4,
@@ -34,7 +34,15 @@
     "realRegistrationBackendCreatedConfirmedIdentity": true,
     "realHorionProfileCreated": false,
     "currentCompleteRealSignupAndPendingRecoveryRetest": "awaiting explicit QA fixture mutation/cleanup authorization",
-    "previousVersion2PublicReadOnlyScenarios": 28
+    "previousVersion2PublicReadOnlyScenarios": 28,
+    "currentMockedSignupErrorScenarios": 4,
+    "signupErrorChecks": [
+      "Existing shared credentials message",
+      "Email preserved when switching to sign in",
+      "Password cleared and focused",
+      "Separate service, rate and network feedback"
+    ],
+    "signupErrorRealBackendCalls": 0
   },
   "supabaseMigrations": [
     "20261107032737_horion_live_community",
@@ -50,5 +58,10 @@
   "limitations": [
     "The complete real browser signup and pending-account recovery retest awaits permission to mutate and delete temporary QA identities.",
     "Passport document upload UI, public collection sharing, subscriptions and marketplace remain unavailable."
-  ]
+  ],
+  "currentChange": {
+    "scope": "UI, Auth error mapping and server response classification; no schema or real account mutations.",
+    "diagnosis": "An existing confirmed shared identity was submitted to signup; provider logs reported email_exists followed by invalid_credentials.",
+    "customerIdentifiersPublished": false
+  }
 }

@@ -4,7 +4,7 @@ Aplicação **Next.js 16, React, TypeScript e Tailwind CSS**, com identidade edi
 
 **A interface atual está conectada ao banco e começa sem conteúdo semeado.** Não carrega perfis, comunidades, fotografias de catálogo ou publicações fictícias; não usa registros locais como alternativa ao backend. Acesso de conta, cadastro e adesão ao perfil Horion usam o Supabase real. O cadastro agora estabelece sessão sem etapa de confirmação de e-mail. A homologação autenticada completa do MVP continua pendente; os limites de QA estão documentados.
 
-A **versão pública 4, com cadastro direto**, foi publicada com sucesso em [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). O build Next.js e o artefato estático conectado passaram. Estado, evidências e limites desta iteração: [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
+A **versão pública 5, com acesso explicado**, foi publicada com sucesso em [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). O build Next.js e o artefato estático conectado passaram. Estado, evidências e limites desta iteração: [LIVE_RELEASE.md](docs/LIVE_RELEASE.md).
 
 ## Executar
 
@@ -53,6 +53,8 @@ Essas funcionalidades estão ligadas ao backend no código; a validação do pro
 
 O projeto Supabase é compartilhado com o Rango. Horion usa schemas `horion`/`horion_private` e cookies próprios `horion-auth`; o diretório Auth, SMTP, cotas e configurações de identidade continuam compartilhados. Uma conta de acesso só recebe perfil Horion por adesão explícita.
 
+Se o e-mail já possui uma conta no Rango/Horion, use **Entrar** com a senha existente. O cadastro não define uma nova senha para essa identidade. Quando as credenciais são recusadas, a tela oferece **Entrar com este e-mail**, preservando o endereço e limpando o campo de senha. Falhas de serviço e conexão têm mensagens próprias. Detalhes: [SIGNIN_ERRORS.md](docs/SIGNIN_ERRORS.md).
+
 O Horion não exige confirmação de e-mail. A Edge Function `horion-register` cria a conta e autentica a senha no servidor; contas pendentes só são liberadas depois de validar a senha existente. O cliente verifica a identidade com `getUser` antes de prosseguir. A configuração global de e-mail do Rango permanece igual. Chaves privilegiadas não entram no navegador. Arquitetura e limites: [NO_EMAIL_AUTH.md](docs/NO_EMAIL_AUTH.md).
 
 A Data API expõe `public,graphql_public,horion`; o schema privado fica fora dela. A lista é controlada por override SQL autorizado do papel `authenticator`. Alterações no Dashboard não a controlarão enquanto ele existir; para devolver o controle, conferir a lista necessária antes de `RESET pgrst.db_schemas` e recarga.
@@ -80,7 +82,7 @@ O dataset anterior permanece apenas como fixture de testes legados e não entra 
 
 ## Validação e continuidade
 
-Passaram **148/148 testes automatizados**, incluindo 61 cenários SQL. TypeScript, build Next.js de produção e build estático conectado também passaram. A suíte inclui recusa de privilégios públicos, limites, senha incorreta, conta pendente e a aceitação do refresh token opaco de 12 caracteres emitido pelo GoTrue.
+Passaram **155/155 testes automatizados**, incluindo 61 cenários SQL. TypeScript, build Next.js de produção e build estático conectado também passaram. A suíte inclui recusa de privilégios públicos, limites, senha incorreta, conta pendente e a aceitação do refresh token opaco de 12 caracteres emitido pelo GoTrue.
 
 Quatro cenários de navegador EN/PT × desktop/mobile, com toda a rede Supabase simulada, verificaram cadastro direto, criação da sessão, onboarding sem e-mail e saída com limpeza do cookie. O teste real criou uma identidade temporária confirmada, sem perfil público Horion; encontrou uma validação excessiva do token no frontend, corrigida na versão 4. A repetição real completa e a remoção da identidade temporária aguardam autorização explícita após bloqueio da revisão automática à exclusão no Auth compartilhado.
 

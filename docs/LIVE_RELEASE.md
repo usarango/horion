@@ -1,4 +1,20 @@
-# Horion: versão pública 4 — cadastro sem e-mail
+# Horion: versão pública 5 — acesso de contas compartilhadas
+
+Publicada com estado `succeeded` em **9 de novembro de 2026, 00:11:33 UTC**, no [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). Código `87af0b6`, source vinculado `60100dd8d7a531eaee18fa1632e12b6af0e72e1c`. Proveniência: [PUBLICATION.json](PUBLICATION.json).
+
+A tentativa investigada retornou `email_exists`, seguida de `invalid_credentials`. Era uma identidade compartilhada já confirmada, sem perfil Horion. A tela agora explica o uso da senha existente e oferece **Entrar com este e-mail**, preservando o endereço, limpando a senha nova e focando a entrada. Falhas de conexão, serviço, sessão e limites têm mensagens distintas, sem exibir dados internos ou fazer uma consulta pública de existência de e-mails.
+
+A Edge Function `horion-register` versão 2 preserva a diferença entre credenciais recusadas, limite e indisponibilidade. As regras de senha, confirmação de conta pendente e autorização permanecem as mesmas. Não houve mudança de schema ou alteração da conta real do usuário. A senha do usuário não foi solicitada nem testada.
+
+**155/155 testes automatizados passaram**, além de TypeScript e builds Next.js/estático. Quatro cenários de navegador EN/PT em desktop/mobile, com toda a rede Supabase interceptada, verificaram as mensagens, a troca para entrada preservando e-mail/limpando senha/foco e falhas de serviço, limite e rede. Não houve chamadas reais, contas ou e-mails criados. A captura mobile foi inspecionada. Detalhes e limites: [SIGNIN_ERRORS.md](SIGNIN_ERRORS.md).
+
+O JavaScript publicado é `horion-DVHTLWHY.js`, com `horion-DEA3PXVQ.css`. A recuperação de acesso depende da escolha do usuário; esta entrega não redefine senha. A autorização pendente para alterar/remover identidades temporárias do QA anterior continua pendente e não foi contornada.
+
+## Histórico: versão 4
+
+As evidências abaixo descrevem a versão anterior e seus limites de teste.
+
+### Registro da versão 4
 
 Publicada com estado `succeeded` em **7 de novembro de 2026, 05:17:29 UTC**, no [Horion Watch Club](https://horion-watch-club-preview.victortb12.chatgpt.site). Proveniência em [PUBLICATION.json](PUBLICATION.json). Código da aplicação: `79fbc89`; source vinculado: `480f787f81aaca276fcbb06caabfc549b7a50f64`.
 
